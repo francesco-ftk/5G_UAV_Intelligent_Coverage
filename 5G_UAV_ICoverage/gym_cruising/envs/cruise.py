@@ -20,18 +20,18 @@ class Cruise(Env):
     can inherit from one another and only redefine certain methods.
     """
 
-    RESOLUTION = 20  # 1.0 => 20 pixels
+    RESOLUTION = 10  # 1.0 metro => 10 pixels
     WIDTH = 3
-    X_OFFSET = 250  # 150
-    Y_OFFSET = -250  # -150
+    X_OFFSET = 50
+    Y_OFFSET = -50
 
     track: Track
     world: Tuple[Line, ...]
 
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 20}
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 1}
 
     def __init__(self, render_mode=None, track_id: int = 1) -> None:
-        self.window_size = 700  # The size of the PyGame window
+        self.window_size = 1000  # The size of the PyGame window
         self.track = Track(track_id)
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]

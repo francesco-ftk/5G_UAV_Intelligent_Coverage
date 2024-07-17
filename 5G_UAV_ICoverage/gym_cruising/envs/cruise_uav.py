@@ -1,5 +1,6 @@
 """ This module contains the Cruising environment class """
 import math
+import random
 from typing import Optional, Tuple
 
 import numpy as np
@@ -12,7 +13,6 @@ from gym_cruising.actors.UAV import UAV
 from gym_cruising.enums.color import Color
 from gym_cruising.envs.cruise import Cruise
 from gym_cruising.geometry.point import Point
-from gym_cruising.geometry.pose import Pose
 
 
 class CruiseUAV(Cruise):
@@ -25,9 +25,13 @@ class CruiseUAV(Cruise):
     MINIMUM_DISTANCE_BETWEEN_UAV = 1.5
     GU_RADIUS = 0.5
 
+    SPAWN_GU_PROB = 0.005
+    DISAPPEAR_GU_PROB = 0.001
+    UAV_SENSING_RADIUS = 10
+    UAV_COMUNICATION_RADIUS = 15
+    UAV_ALTITUDE = 120
 
-    DISTANCE_STANDARD_DEVIATION = 0.02
-    ANGLE_STANDARD_DEVIATION = 0.02
+    GU_STANDARD_DEVIATION = 2  # 4,6 per andare a 0 a circa 3 volte la deviazione standard -> 13,8 m/s
 
     def __init__(self,
                  render_mode=None, track_id: int = 1) -> None:
@@ -38,11 +42,51 @@ class CruiseUAV(Cruise):
         self.action_space = spaces.Discrete(2)
 
     def perform_action(self, action: int) -> None:
-        self.perform_GU_action()
+        self.update_GU()
 
-    def perform_GU_action(self):
-        # TODO
-        x = 1
+    def update_GU(self):
+        # self.moveUAV()
+        self.move_GU()
+        self.check_if_disappear_GU()
+        self.check_if_spawn_new_GU()
+
+    def move_GU(self):
+        area = self.np_random.choice(self.track.spawn_area)
+        for gu in self.gu:
+            repeat = True
+            while repeat:
+                previous_position = gu.position
+                x_noise = self.np_random.normal(0, self.GU_STANDARD_DEVIATION)
+                y_noise = self.np_random.normal(0, self.GU_STANDARD_DEVIATION)
+                new_position = Point(previous_position.x_coordinate + x_noise, previous_position.y_coordinate + y_noise)
+                if new_position.is_in_area(area):
+                    repeat = False
+                    gu.position = new_position
+                else:
+                    repeat = True
+
+    def check_if_spawn_new_GU(self):
+        sample = random.random()
+        for _ in range(4):
+            if sample <= self.SPAWN_GU_PROB:
+                area = self.np_random.choice(self.track.spawn_area)
+                x_coordinate = self.np_random.uniform(area[0][0], area[0][1])
+                y_coordinate = self.np_random.uniform(area[1][0], area[1][1])
+                self.gu.append(GU(Point(x_coordinate, y_coordinate)))
+                self.gu_number += 1
+
+    def check_if_disappear_GU(self):
+        disappeared_GU = 0
+        index_to_remove = []
+        for i in range(self.gu_number):
+            sample = random.random()
+            if sample <= self.DISAPPEAR_GU_PROB:
+                index_to_remove.append(i)
+                disappeared_GU += 1
+        index_to_remove = sorted(index_to_remove, reverse=True)
+        for index in index_to_remove:
+            del self.gu[index]
+        self.gu_number -= disappeared_GU
 
     def get_observation(self) -> int:
         return 0
@@ -110,6 +154,11 @@ class CruiseUAV(Cruise):
                                self.convert_point(uav.position),
                                self.UAV_RADIUS * self.RESOLUTION)
 
+        # UAV image
+        # icon_drone = pygame.image.load('./gym_cruising/images/drone1.png')
+        # for uav in self.uav:
+        #     canvas.blit(icon_drone, self.drone_convert_point(uav.position))
+
         # GU
         for gu in self.gu:
             pygame.draw.circle(canvas,
@@ -125,5 +174,12 @@ class CruiseUAV(Cruise):
                     + self.Y_OFFSET)
         return pygame_x, pygame_y
 
+    def drone_convert_point(self, point: Point) -> Tuple[int,int]:
+        shiftX = 25
+        shiftY = 25
+        pygame_x = (round(point.x_coordinate * self.RESOLUTION) - shiftX + self.X_OFFSET)
+        pygame_y = (self.window_size - round(point.y_coordinate * self.RESOLUTION) - shiftY + self.Y_OFFSET)
+        return pygame_x, pygame_y
+
     def create_info(self) -> dict:
-        return {"info": ""}
+        return {"info": "sono presenti " + str(self.gu_number) + " GU"}

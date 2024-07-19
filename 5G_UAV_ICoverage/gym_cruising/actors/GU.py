@@ -20,3 +20,6 @@ class GU:
                 return Color.YELLOW.value
         return Color.RED.value
 
+    def setConnected(self, conneted: bool):
+        self.connected = conneted
+

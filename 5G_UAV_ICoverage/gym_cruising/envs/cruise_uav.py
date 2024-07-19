@@ -13,6 +13,7 @@ from gym_cruising.actors.UAV import UAV
 from gym_cruising.enums.color import Color
 from gym_cruising.envs.cruise import Cruise
 from gym_cruising.geometry.point import Point
+from gym_cruising.utils import link_utils
 
 
 class CruiseUAV(Cruise):
@@ -27,9 +28,8 @@ class CruiseUAV(Cruise):
 
     SPAWN_GU_PROB = 0.005
     DISAPPEAR_GU_PROB = 0.001
-    UAV_SENSING_RADIUS = 10
-    UAV_COMUNICATION_RADIUS = 15
     UAV_ALTITUDE = 120
+    UAV_SENSING_ZONE_RADIUS = 50
 
     GU_STANDARD_DEVIATION = 2  # 4,6 per andare a 0 a circa 3 volte la deviazione standard -> 13,8 m/s
 
@@ -47,8 +47,9 @@ class CruiseUAV(Cruise):
     def update_GU(self):
         # self.moveUAV()
         self.move_GU()
-        self.check_if_disappear_GU()
-        self.check_if_spawn_new_GU()
+        # self.check_if_disappear_GU()
+        # self.check_if_spawn_new_GU()
+        self.check_connection_UAV_GU()
 
     def move_GU(self):
         area = self.np_random.choice(self.track.spawn_area)
@@ -65,16 +66,6 @@ class CruiseUAV(Cruise):
                 else:
                     repeat = True
 
-    def check_if_spawn_new_GU(self):
-        sample = random.random()
-        for _ in range(4):
-            if sample <= self.SPAWN_GU_PROB:
-                area = self.np_random.choice(self.track.spawn_area)
-                x_coordinate = self.np_random.uniform(area[0][0], area[0][1])
-                y_coordinate = self.np_random.uniform(area[1][0], area[1][1])
-                self.gu.append(GU(Point(x_coordinate, y_coordinate)))
-                self.gu_number += 1
-
     def check_if_disappear_GU(self):
         disappeared_GU = 0
         index_to_remove = []
@@ -87,6 +78,28 @@ class CruiseUAV(Cruise):
         for index in index_to_remove:
             del self.gu[index]
         self.gu_number -= disappeared_GU
+
+
+    def check_if_spawn_new_GU(self):
+        sample = random.random()
+        for _ in range(4):
+            if sample <= self.SPAWN_GU_PROB:
+                area = self.np_random.choice(self.track.spawn_area)
+                x_coordinate = self.np_random.uniform(area[0][0], area[0][1])
+                y_coordinate = self.np_random.uniform(area[1][0], area[1][1])
+                self.gu.append(GU(Point(x_coordinate, y_coordinate)))
+                self.gu_number += 1
+
+    def check_connection_UAV_GU(self):
+        for gu in self.gu:
+            gu.setConnected(False)
+        for uav in self.uav:
+            for gu in self.gu:
+                if not gu.connected:
+                    path_loss = link_utils.get_PathLoss(uav.position, gu.position)
+                    if not link_utils.is_connection_failed(path_loss):
+                        gu.setConnected(True)
+
 
     def get_observation(self) -> int:
         return 0
@@ -155,9 +168,9 @@ class CruiseUAV(Cruise):
                                self.UAV_RADIUS * self.RESOLUTION)
 
         # UAV image
-        # icon_drone = pygame.image.load('./gym_cruising/images/drone1.png')
-        # for uav in self.uav:
-        #     canvas.blit(icon_drone, self.drone_convert_point(uav.position))
+        icon_drone = pygame.image.load('./gym_cruising/images/drone1.png')
+        for uav in self.uav:
+            canvas.blit(icon_drone, self.drone_convert_point(uav.position))
 
         # GU
         for gu in self.gu:

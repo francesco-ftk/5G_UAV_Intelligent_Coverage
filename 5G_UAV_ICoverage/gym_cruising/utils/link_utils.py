@@ -39,7 +39,7 @@ def get_PathLoss(uav: Point, gu: Point):
 
 # check if the connection is failed
 def is_connection_failed(pl: float) -> bool:
-    return pl > 80.28683598080754
+    return pl > 81.34641738844708
 
 
 # def dB2W(decibel_value: float):

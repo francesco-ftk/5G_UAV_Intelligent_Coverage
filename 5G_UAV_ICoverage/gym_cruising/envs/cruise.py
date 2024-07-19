@@ -20,10 +20,10 @@ class Cruise(Env):
     can inherit from one another and only redefine certain methods.
     """
 
-    RESOLUTION = 10  # 1.0 metro => 10 pixels
+    RESOLUTION = 2  # 1.0 metro => 2 pixels
     WIDTH = 3
-    X_OFFSET = 50
-    Y_OFFSET = -50
+    X_OFFSET = 0
+    Y_OFFSET = 0
 
     track: Track
     world: Tuple[Line, ...]

@@ -31,7 +31,7 @@ class CruiseUAV(Cruise):
     UAV_ALTITUDE = 120
     UAV_SENSING_ZONE_RADIUS = 50
 
-    GU_STANDARD_DEVIATION = 2  # 4,6 per andare a 0 a circa 3 volte la deviazione standard -> 13,8 m/s
+    GU_STANDARD_DEVIATION = 4.6  # 2  # 4.6 per andare a 0 a circa 3 volte la deviazione standard -> 13,8 m/s
 
     def __init__(self,
                  render_mode=None, track_id: int = 1) -> None:
@@ -40,6 +40,11 @@ class CruiseUAV(Cruise):
         self.observation_space = spaces.Discrete(1)
 
         self.action_space = spaces.Discrete(2)
+
+    def reset(self, seed=None, options=None) -> Tuple[np.ndarray, dict]:
+        self.uav = []
+        self.gu = []
+        return super().reset(seed=seed, options=options)
 
     def perform_action(self, action: int) -> None:
         self.update_GU()
@@ -79,7 +84,6 @@ class CruiseUAV(Cruise):
             del self.gu[index]
         self.gu_number -= disappeared_GU
 
-
     def check_if_spawn_new_GU(self):
         sample = random.random()
         for _ in range(4):
@@ -99,7 +103,6 @@ class CruiseUAV(Cruise):
                     path_loss = link_utils.get_PathLoss(uav.position, gu.position)
                     if not link_utils.is_connection_failed(path_loss):
                         gu.setConnected(True)
-
 
     def get_observation(self) -> int:
         return 0
@@ -160,24 +163,28 @@ class CruiseUAV(Cruise):
                              self.convert_point(wall.end),
                              self.WIDTH)
 
+        # GU
+        # for gu in self.gu:
+        #     pygame.draw.circle(canvas,
+        #                        gu.getColor(),
+        #                        self.convert_point(gu.position),
+        #                        self.GU_RADIUS * self.RESOLUTION)
+
+        # GU image
+        for gu in self.gu:
+            canvas.blit(pygame.image.load(gu.getImage()), self.image_convert_point(gu.position))
+
         # UAV
-        for uav in self.uav:
-            pygame.draw.circle(canvas,
-                               Color.BLUE.value,
-                               self.convert_point(uav.position),
-                               self.UAV_RADIUS * self.RESOLUTION)
+        # for uav in self.uav:
+        #     pygame.draw.circle(canvas,
+        #                        Color.BLUE.value,
+        #                        self.convert_point(uav.position),
+        #                        self.UAV_RADIUS * self.RESOLUTION)
 
         # UAV image
-        icon_drone = pygame.image.load('./gym_cruising/images/drone1.png')
+        icon_drone = pygame.image.load('./gym_cruising/images/drone30.png')
         for uav in self.uav:
-            canvas.blit(icon_drone, self.drone_convert_point(uav.position))
-
-        # GU
-        for gu in self.gu:
-            pygame.draw.circle(canvas,
-                               gu.getColor(),
-                               self.convert_point(gu.position),
-                               self.GU_RADIUS * self.RESOLUTION)
+            canvas.blit(icon_drone, self.image_convert_point(uav.position))
 
     def convert_point(self, point: Point) -> Tuple[int, int]:
         pygame_x = (round(point.x_coordinate * self.RESOLUTION)
@@ -187,9 +194,9 @@ class CruiseUAV(Cruise):
                     + self.Y_OFFSET)
         return pygame_x, pygame_y
 
-    def drone_convert_point(self, point: Point) -> Tuple[int,int]:
-        shiftX = 25
-        shiftY = 25
+    def image_convert_point(self, point: Point) -> Tuple[int, int]:
+        shiftX = 15
+        shiftY = 15
         pygame_x = (round(point.x_coordinate * self.RESOLUTION) - shiftX + self.X_OFFSET)
         pygame_y = (self.window_size - round(point.y_coordinate * self.RESOLUTION) - shiftY + self.Y_OFFSET)
         return pygame_x, pygame_y

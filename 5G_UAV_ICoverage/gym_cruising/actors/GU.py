@@ -20,6 +20,13 @@ class GU:
                 return Color.YELLOW.value
         return Color.RED.value
 
+    def getImage(self):
+        if self.connected:
+            if self.covered:
+                return './gym_cruising/images/green30.png'
+            else:
+                return './gym_cruising/images/blue30.png'
+        return './gym_cruising/images/white30.png'
+
     def setConnected(self, conneted: bool):
         self.connected = conneted
-

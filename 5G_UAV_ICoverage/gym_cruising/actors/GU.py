@@ -6,6 +6,7 @@ class GU:
     position: Point
     connected: bool
     covered: bool
+    transition_matrix = []
 
     def __init__(self, position: Point) -> None:
         self.position = position

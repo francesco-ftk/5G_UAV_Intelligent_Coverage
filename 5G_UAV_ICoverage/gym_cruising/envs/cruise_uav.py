@@ -31,7 +31,8 @@ class CruiseUAV(Cruise):
     UAV_ALTITUDE = 120
     UAV_SENSING_ZONE_RADIUS = 50
 
-    GU_STANDARD_DEVIATION = 4.6  # 2  # 4.6 per andare a 0 a circa 3 volte la deviazione standard -> 13,8 m/s
+    GU_MEAN_SPEED = 1.4  # 1.4 m/s
+    GU_STANDARD_DEVIATION = 0.3  # 0.3 m/s  # va a 0 a circa 3 volte la deviazione standard
 
     def __init__(self,
                  render_mode=None, track_id: int = 1) -> None:
@@ -56,15 +57,25 @@ class CruiseUAV(Cruise):
         # self.check_if_spawn_new_GU()
         self.check_connection_UAV_GU()
 
+    # Random walk the GU
     def move_GU(self):
         area = self.np_random.choice(self.track.spawn_area)
         for gu in self.gu:
             repeat = True
             while repeat:
                 previous_position = gu.position
-                x_noise = self.np_random.normal(0, self.GU_STANDARD_DEVIATION)
-                y_noise = self.np_random.normal(0, self.GU_STANDARD_DEVIATION)
-                new_position = Point(previous_position.x_coordinate + x_noise, previous_position.y_coordinate + y_noise)
+                distance = self.np_random.normal(self.GU_MEAN_SPEED, self.GU_STANDARD_DEVIATION)
+                direction = np.random.choice(['up', 'down', 'left', 'right'])
+
+                if direction == 'up':
+                    new_position = Point(previous_position.x_coordinate, previous_position.y_coordinate + distance)
+                elif direction == 'down':
+                    new_position = Point(previous_position.x_coordinate, previous_position.y_coordinate - distance)
+                elif direction == 'left':
+                    new_position = Point(previous_position.x_coordinate - distance, previous_position.y_coordinate)
+                elif direction == 'right':
+                    new_position = Point(previous_position.x_coordinate + distance, previous_position.y_coordinate)
+
                 if new_position.is_in_area(area):
                     repeat = False
                     gu.position = new_position
@@ -149,7 +160,13 @@ class CruiseUAV(Cruise):
         for _ in range(self.gu_number):
             x_coordinate = self.np_random.uniform(area[0][0], area[0][1])
             y_coordinate = self.np_random.uniform(area[1][0], area[1][1])
-            self.gu.append(GU(Point(x_coordinate, y_coordinate)))
+            gu = GU(Point(x_coordinate, y_coordinate))
+            for uav in self.uav:
+                distance = link_utils.calculate_distance_uav_gu()
+                PLoS = link_utils.get_PLoS()
+                # g(s) TODO
+                # gu.transition_matrix.append([]) TODO
+            self.gu.append()
 
     def draw(self, canvas: Surface) -> None:
         # CANVAS

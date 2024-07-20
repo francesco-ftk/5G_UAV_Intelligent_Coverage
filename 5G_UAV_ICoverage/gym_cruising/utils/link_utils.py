@@ -7,6 +7,8 @@ b = 0.11  # in the dense urban case
 nNLos = 23  # dB
 nLos = 1.6  # dB
 
+LOS = []
+
 
 # calculate distance between one UAV and one GU in air line
 def calculate_distance_uav_gu(uav: Point, gu: Point):

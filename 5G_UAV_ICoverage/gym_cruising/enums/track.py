@@ -25,13 +25,13 @@ class Track(Enum):
 
     TRACK1 = (1,
               (
-                  Line(Point(0, 0), Point(0, 500)),
-                  Line(Point(0, 500), Point(500, 500)),
-                  Line(Point(500, 500), Point(500, 0)),
-                  Line(Point(500, 0), Point(0, 0))
+                  Line(Point(0, 0), Point(0, 300)),
+                  Line(Point(0, 300), Point(300, 300)),
+                  Line(Point(300, 300), Point(300, 0)),
+                  Line(Point(300, 0), Point(0, 0))
               ),
               (
-                  ((8, 492), (8, 492)),
+                  ((2, 298), (2, 298)),
               )
               )
 

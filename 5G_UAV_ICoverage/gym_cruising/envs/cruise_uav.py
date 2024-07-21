@@ -13,7 +13,7 @@ from gym_cruising.actors.UAV import UAV
 from gym_cruising.enums.color import Color
 from gym_cruising.envs.cruise import Cruise
 from gym_cruising.geometry.point import Point
-from gym_cruising.utils import link_utils
+from gym_cruising.utils import channels_utils
 
 
 class CruiseUAV(Cruise):
@@ -53,9 +53,10 @@ class CruiseUAV(Cruise):
     def update_GU(self):
         # self.moveUAV()
         self.move_GU()
+        self.update_PathLoss_with_Markov_Chain()
         # self.check_if_disappear_GU()
         # self.check_if_spawn_new_GU()
-        self.check_connection_UAV_GU()
+        # self.check_connection_UAV_GU()
 
     # Random walk the GU
     def move_GU(self):
@@ -76,11 +77,16 @@ class CruiseUAV(Cruise):
                 elif direction == 'right':
                     new_position = Point(previous_position.x_coordinate + distance, previous_position.y_coordinate)
 
+                # TODO review if it's ok
                 if new_position.is_in_area(area):
                     repeat = False
                     gu.position = new_position
                 else:
                     repeat = True
+
+    def update_PathLoss_with_Markov_Chain(self):
+        x = 1
+        # TODO
 
     def check_if_disappear_GU(self):
         disappeared_GU = 0
@@ -111,8 +117,8 @@ class CruiseUAV(Cruise):
         for uav in self.uav:
             for gu in self.gu:
                 if not gu.connected:
-                    path_loss = link_utils.get_PathLoss(uav.position, gu.position)
-                    if not link_utils.is_connection_failed(path_loss):
+                    path_loss = channels_utils.get_PathLoss(uav.position, gu.position)
+                    if not channels_utils.is_connection_failed(path_loss):
                         gu.setConnected(True)
 
     def get_observation(self) -> int:
@@ -162,11 +168,10 @@ class CruiseUAV(Cruise):
             y_coordinate = self.np_random.uniform(area[1][0], area[1][1])
             gu = GU(Point(x_coordinate, y_coordinate))
             for uav in self.uav:
-                distance = link_utils.calculate_distance_uav_gu()
-                PLoS = link_utils.get_PLoS()
-                # g(s) TODO
-                # gu.transition_matrix.append([]) TODO
-            self.gu.append()
+                distance = channels_utils.calculate_distance_uav_gu(uav.position, gu.position)
+                initial_PLoS = channels_utils.get_PLoS(distance)
+                gu.initial_PLoS.append(initial_PLoS)
+            self.gu.append(gu)
 
     def draw(self, canvas: Surface) -> None:
         # CANVAS

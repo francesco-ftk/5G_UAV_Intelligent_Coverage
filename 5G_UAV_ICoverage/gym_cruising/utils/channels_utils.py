@@ -1,3 +1,5 @@
+import numpy as np
+
 from gym_cruising.geometry.point import Point
 import math
 
@@ -6,6 +8,7 @@ a = 12.08  # in the dense urban case
 b = 0.11  # in the dense urban case
 nNLos = 23  # dB
 nLos = 1.6  # dB
+RATE_OF_GROWTH = -0.7
 
 LOS = []
 
@@ -23,6 +26,15 @@ def get_PLoS(distance_uav_gu: float):
     return 1 / (1 + a * math.exp((-1) * b * (elevation_angle - a)))
 
 
+def get_transition_matrix(distance_uav_gu: float, initial_PLoS: float):
+    PLoS2NLoS = 2 * ((1 - initial_PLoS) / 1 + math.exp(RATE_OF_GROWTH * distance_uav_gu) - (1 - initial_PLoS) / 2)  # g1
+    PNLoS2LoS = 2 * (initial_PLoS / 1 + math.exp(RATE_OF_GROWTH * distance_uav_gu) - initial_PLoS / 2)  # g2
+    return np.array([
+        [1 - PLoS2NLoS, PLoS2NLoS],
+        [PNLoS2LoS, 1 - PNLoS2LoS]
+    ])
+
+
 # calculate the Free Space PathLoss of the link between one UAV and one GU in dB
 # 38.4684 is according to Friis equation with carrier frequency fc = 2GHz
 def get_free_space_PathLoss(distance_uav_gu: float):
@@ -30,19 +42,16 @@ def get_free_space_PathLoss(distance_uav_gu: float):
 
 
 # calculate the spatial expectation of the PathLoss of the link between one UAV and one GU in dB
-def get_PathLoss(uav: Point, gu: Point):
-    distance_uav_gu = calculate_distance_uav_gu(uav, gu)
-    PLoS = get_PLoS(distance_uav_gu)
-    PNLoS = 1 - PLoS
+def get_PathLoss(distance_uav_gu: float, current_state: int):
     FSPL = get_free_space_PathLoss(distance_uav_gu)
-    return 10 * math.log(
-        math.pow(10, FSPL / 10) + math.pow(10, (PLoS * nLos) / 10) + math.pow(10, (PNLoS * nNLos) / 10), 10)
+    if current_state == 0:
+        return 10 * math.log(math.pow(10, FSPL / 10) + math.pow(10, nLos / 10))
+    return 10 * math.log(math.pow(10, FSPL / 10) + math.pow(10, nNLos / 10))
 
 
 # check if the connection is failed
 def is_connection_failed(pl: float) -> bool:
     return pl > 81.34641738844708
-
 
 # def dB2W(decibel_value: float):
 #     return 10 ** (decibel_value / 10)

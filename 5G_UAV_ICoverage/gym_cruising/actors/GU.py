@@ -7,11 +7,14 @@ class GU:
     connected: bool
     covered: bool
     initial_PLoS = []
+    initial_state = []
 
     def __init__(self, position: Point) -> None:
         self.position = position
         self.connected = False
         self.covered = False
+        self.initial_PLoS = []
+        self.initial_state = []
 
     def getColor(self):
         if self.connected:

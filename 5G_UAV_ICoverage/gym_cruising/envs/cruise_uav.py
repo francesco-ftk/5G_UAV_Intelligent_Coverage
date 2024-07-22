@@ -66,7 +66,7 @@ class CruiseUAV(Cruise):
             repeat = True
             while repeat:
                 previous_position = gu.position
-                distance = self.np_random.normal(self.GU_MEAN_SPEED, self.GU_STANDARD_DEVIATION)
+                distance = abs(self.np_random.normal(self.GU_MEAN_SPEED, self.GU_STANDARD_DEVIATION))
                 direction = np.random.choice(['up', 'down', 'left', 'right'])
 
                 if direction == 'up':

@@ -54,7 +54,7 @@ class CruiseUAV(Cruise):
     def update_GU(self):
         # self.moveUAV()
         self.move_GU()
-        self.update_PathLoss_with_Markov_Chain()
+        # self.update_PathLoss_with_Markov_Chain()
         # self.check_if_disappear_GU()
         # self.check_if_spawn_new_GU()
         # self.check_connection_UAV_GU()

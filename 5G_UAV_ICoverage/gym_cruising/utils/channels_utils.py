@@ -3,12 +3,13 @@ import numpy as np
 from gym_cruising.geometry.point import Point
 import math
 
-UAV_ALTITUDE = 120
+UAV_ALTITUDE = 120  # max altitude for law
 a = 12.08  # in the dense urban case
 b = 0.11  # in the dense urban case
 nNLos = 23  # dB
 nLos = 1.6  # dB
 RATE_OF_GROWTH = -0.7
+TRASMISSION_POWER = 30  # 30 dBm
 
 LOS = []
 
@@ -45,13 +46,16 @@ def get_free_space_PathLoss(distance_uav_gu: float):
 def get_PathLoss(distance_uav_gu: float, current_state: int):
     FSPL = get_free_space_PathLoss(distance_uav_gu)
     if current_state == 0:
-        return 10 * math.log(math.pow(10, FSPL / 10) + math.pow(10, nLos / 10))
-    return 10 * math.log(math.pow(10, FSPL / 10) + math.pow(10, nNLos / 10))
+        return 10 * math.log(math.pow(10, FSPL / 10) + math.pow(10, nLos / 10), 10)
+    return 10 * math.log(math.pow(10, FSPL / 10) + math.pow(10, nNLos / 10), 10)
 
+
+def getSINR(path_loss: float, interference_path_loss: float):
+    return (path_loss + TRASMISSION_POWER) - (interference_path_loss - 111)
 
 # check if the connection is failed
-def is_connection_failed(pl: float) -> bool:
-    return pl > 81.34641738844708
+# def is_connection_failed(pl: float) -> bool:
+#     return pl > 81.34641738844708
 
 # def dB2W(decibel_value: float):
 #     return 10 ** (decibel_value / 10)

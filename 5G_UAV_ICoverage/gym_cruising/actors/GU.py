@@ -6,15 +6,13 @@ class GU:
     position: Point
     connected: bool
     covered: bool
-    initial_PLoS = []
-    initial_state = []
+    channels_state = []
 
     def __init__(self, position: Point) -> None:
         self.position = position
         self.connected = False
         self.covered = False
-        self.initial_PLoS = []
-        self.initial_state = []
+        self.channels_state = []
 
     def getColor(self):
         if self.connected:
@@ -34,3 +32,9 @@ class GU:
 
     def setConnected(self, conneted: bool):
         self.connected = conneted
+
+    def setCovered(self, covered: bool):
+        self.covered = covered
+
+    def setChannelsState(self, channels_state: [int]):
+        self.channels_state = channels_state

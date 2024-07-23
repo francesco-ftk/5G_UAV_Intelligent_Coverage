@@ -3,12 +3,13 @@ import numpy as np
 from gym_cruising.geometry.point import Point
 import math
 
-UAV_ALTITUDE = 120  # max altitude for law
+UAV_ALTITUDE = 60  # 120 max altitude for law
 a = 12.08  # in the dense urban case
 b = 0.11  # in the dense urban case
-nNLos = 23  # dB
-nLos = 1.6  # dB
-RATE_OF_GROWTH = -0.7
+nNLos = 23  # [dB] in the dense urban case
+nLos = 1.6  # [dB] in the dense urban case
+RATE_OF_GROWTH_G1 = -0.1
+RATE_OF_GROWTH_G2 = 0.1
 TRASMISSION_POWER = 30  # 30 dBm
 
 LOS = []
@@ -27,9 +28,10 @@ def get_PLoS(distance_uav_gu: float):
     return 1 / (1 + a * math.exp((-1) * b * (elevation_angle - a)))
 
 
-def get_transition_matrix(distance_uav_gu: float, initial_PLoS: float):
-    PLoS2NLoS = 2 * ((1 - initial_PLoS) / 1 + math.exp(RATE_OF_GROWTH * distance_uav_gu) - (1 - initial_PLoS) / 2)  # g1
-    PNLoS2LoS = 2 * (initial_PLoS / 1 + math.exp(RATE_OF_GROWTH * distance_uav_gu) - initial_PLoS / 2)  # g2
+# return transition matrix for Markov Chain channel state update
+def get_transition_matrix(distance_uav_gu: float, PLoS: float):
+    PLoS2NLoS = 2 * ((1 - PLoS) / (1 + math.exp(RATE_OF_GROWTH_G1 * distance_uav_gu)) - (1 - PLoS) / 2)  # g1
+    PNLoS2LoS = 2 * PLoS / (1 + math.exp(RATE_OF_GROWTH_G2 * distance_uav_gu))  # g2 # TODO check if correct
     return np.array([
         [1 - PLoS2NLoS, PLoS2NLoS],
         [PNLoS2LoS, 1 - PNLoS2LoS]
@@ -42,12 +44,12 @@ def get_free_space_PathLoss(distance_uav_gu: float):
     return 20 * math.log(distance_uav_gu, 10) + 38.4684
 
 
-# calculate the spatial expectation of the PathLoss of the link between one UAV and one GU in dB
+# calculate PathLoss of the link between one UAV and one GU in dB
 def get_PathLoss(distance_uav_gu: float, current_state: int):
     FSPL = get_free_space_PathLoss(distance_uav_gu)
     if current_state == 0:
-        return 10 * math.log(math.pow(10, FSPL / 10) + math.pow(10, nLos / 10), 10)
-    return 10 * math.log(math.pow(10, FSPL / 10) + math.pow(10, nNLos / 10), 10)
+        return FSPL + nLos
+    return FSPL + nNLos
 
 
 def getSINR(path_loss: float, interference_path_loss: float):

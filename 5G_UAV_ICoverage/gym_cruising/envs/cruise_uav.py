@@ -24,7 +24,7 @@ class CruiseUAV(Cruise):
     UAV_NUMBER = 3
     gu_number = 20
     UAV_RADIUS = 0.4
-    MINIMUM_DISTANCE_BETWEEN_UAV = 1.5
+    MINIMUM_DISTANCE_BETWEEN_UAV = 10
     GU_RADIUS = 0.5
 
     SPAWN_GU_PROB = 0.005
@@ -88,13 +88,17 @@ class CruiseUAV(Cruise):
     def update_PathLoss_with_Markov_Chain(self):
         for gu in self.gu:
             current_GU_PathLoss = []
+            new_channels_state = []
             for index, uav in enumerate(self.uav):
                 distance = channels_utils.calculate_distance_uav_gu(uav.position, gu.position)
-                transition_matrix = channels_utils.get_transition_matrix(distance, gu.initial_PLoS[index])
-                current_state = np.random.choice(range(len(transition_matrix)), p=transition_matrix[gu.initial_state[index]])
+                channel_PLoS = channels_utils.get_PLoS(distance)
+                transition_matrix = channels_utils.get_transition_matrix(distance, channel_PLoS)
+                current_state = np.random.choice(range(len(transition_matrix)), p=transition_matrix[gu.channels_state[index]])
+                new_channels_state.append(current_state)
                 path_loss = channels_utils.get_PathLoss(distance, current_state)
                 current_GU_PathLoss.append(path_loss)
             self.pathLoss.append(current_GU_PathLoss)
+            gu.setChannelsState(new_channels_state)
 
     def check_if_disappear_GU(self):
         disappeared_GU = 0
@@ -177,13 +181,12 @@ class CruiseUAV(Cruise):
             gu = GU(Point(x_coordinate, y_coordinate))
             for uav in self.uav:
                 distance = channels_utils.calculate_distance_uav_gu(uav.position, gu.position)
-                initial_PLoS = channels_utils.get_PLoS(distance)
+                initial_channel_PLoS = channels_utils.get_PLoS(distance)
                 sample = random.random()
-                if sample <= initial_PLoS:
-                    gu.initial_state.append(0)  # 0 = LoS, 1 = NLoS
+                if sample <= initial_channel_PLoS:
+                    gu.channels_state.append(0)  # 0 = LoS
                 else:
-                    gu.initial_state.append(1)
-                gu.initial_PLoS.append(initial_PLoS)
+                    gu.channels_state.append(1)  # 1 = NLoS
             self.gu.append(gu)
 
     def draw(self, canvas: Surface) -> None:

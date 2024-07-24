@@ -3,7 +3,7 @@ import numpy as np
 from gym_cruising.geometry.point import Point
 import math
 
-UAV_ALTITUDE = 60  # 120 max altitude for law
+UAV_ALTITUDE = 30  # 120 max altitude for law
 a = 12.08  # in the dense urban case
 b = 0.11  # in the dense urban case
 nNLos = 23  # [dB] in the dense urban case
@@ -11,6 +11,8 @@ nLos = 1.6  # [dB] in the dense urban case
 RATE_OF_GROWTH_G1 = -0.1
 RATE_OF_GROWTH_G2 = 0.1
 TRASMISSION_POWER = 30  # 30 dBm
+CHANNEL_BANDWIDTH = 2e6  # 2 MHz
+POWER_SPECTRAL_DENSITY_OF_NOISE = -174  # -174 dBm/Hz
 
 LOS = []
 
@@ -52,20 +54,27 @@ def get_PathLoss(distance_uav_gu: float, current_state: int):
     return FSPL + nNLos
 
 
-def getSINR(path_loss: float, interference_path_loss: float):
-    return (path_loss + TRASMISSION_POWER) - (interference_path_loss - 111)
+def getSINR(path_loss: float, interference_path_loss: []):
+    return W2dB((dBm2Watt(TRASMISSION_POWER) * getChannelGain(path_loss)) / (getInterference(interference_path_loss) + dBm2Watt(POWER_SPECTRAL_DENSITY_OF_NOISE) * CHANNEL_BANDWIDTH))
 
-# check if the connection is failed
-# def is_connection_failed(pl: float) -> bool:
-#     return pl > 81.34641738844708
+def getChannelGain(path_loss: float) -> float:
+    return 1 / dB2Linear(path_loss)
 
-# def dB2W(decibel_value: float):
-#     return 10 ** (decibel_value / 10)
-#
-#
-# def dBm2W(dBm_value: float):
-#     return math.pow(10, (dBm_value - 30) / 10)
-#
-#
-# def W2dB(watt_value: float):
-#     return math.log(watt_value, 10) * 10
+
+def getInterference(interference_path_loss: []) -> float:
+    interference = 0.0
+    for path_loss in interference_path_loss:
+        interference += dBm2Watt(TRASMISSION_POWER) * getChannelGain(path_loss)
+    return interference
+
+
+def dB2Linear(decibel_value: float):
+    return 10 ** (decibel_value / 10)
+
+
+def dBm2Watt(dBm_value: float):
+    return math.pow(10, (dBm_value - 30) / 10)
+
+
+def W2dB(watt_value: float):
+    return math.log(watt_value, 10) * 10

@@ -20,6 +20,7 @@ class CruiseUAV(Cruise):
     uav = []
     gu = []
     pathLoss = []
+    SINR = []
 
     UAV_NUMBER = 3
     gu_number = 20
@@ -32,7 +33,7 @@ class CruiseUAV(Cruise):
     UAV_ALTITUDE = 120
     UAV_SENSING_ZONE_RADIUS = 50
 
-    GU_MEAN_SPEED = 1.4  # 1.4 m/s
+    GU_MEAN_SPEED = 8  # 1.4 m/s
     GU_STANDARD_DEVIATION = 0.3  # 0.3 m/s  # va a 0 a circa 3 volte la deviazione standard
 
     def __init__(self,
@@ -54,10 +55,12 @@ class CruiseUAV(Cruise):
     def update_GU(self):
         # self.moveUAV()
         self.move_GU()
-        # self.update_PathLoss_with_Markov_Chain()
         # self.check_if_disappear_GU()
         # self.check_if_spawn_new_GU()
-        # self.check_connection_UAV_GU()
+        self.calculate_PathLoss_with_Markov_Chain()
+        self.calculate_SINR()
+        self.check_connection_and_coverage_UAV_GU()
+
 
     # Random walk the GU
     def move_GU(self):
@@ -85,7 +88,7 @@ class CruiseUAV(Cruise):
                 else:
                     repeat = True
 
-    def update_PathLoss_with_Markov_Chain(self):
+    def calculate_PathLoss_with_Markov_Chain(self):
         for gu in self.gu:
             current_GU_PathLoss = []
             new_channels_state = []
@@ -99,6 +102,17 @@ class CruiseUAV(Cruise):
                 current_GU_PathLoss.append(path_loss)
             self.pathLoss.append(current_GU_PathLoss)
             gu.setChannelsState(new_channels_state)
+
+    def calculate_SINR(self):
+        for i in range(len(self.gu)):
+            current_GU_SINR = []
+            current_pathLoss = self.pathLoss[i]
+            for j in range(len(self.uav)):
+               copy_list = current_pathLoss.copy()
+               del copy_list[j]
+               current_GU_SINR.append(channels_utils.getSINR(current_pathLoss[j], copy_list))
+            self.SINR.append(current_GU_SINR)
+
 
     def check_if_disappear_GU(self):
         disappeared_GU = 0
@@ -123,15 +137,18 @@ class CruiseUAV(Cruise):
                 self.gu.append(GU(Point(x_coordinate, y_coordinate)))
                 self.gu_number += 1
 
-    def check_connection_UAV_GU(self):
-        for gu in self.gu:
+    def check_connection_and_coverage_UAV_GU(self):
+        for i, gu in enumerate(self.gu):
             gu.setConnected(False)
-        for uav in self.uav:
-            for gu in self.gu:
-                if not gu.connected:
-                    path_loss = channels_utils.get_PathLoss(uav.position, gu.position)
-                    if not channels_utils.is_connection_failed(path_loss):
-                        gu.setConnected(True)
+            gu.setCovered(False)
+            current_SINR = self.SINR[i]
+            SINR_sum = 0.0
+            for j in range(len(self.uav)):
+                if current_SINR[j] >= 6.0:
+                    gu.setConnected(True)
+                    SINR_sum += channels_utils.dB2Linear(current_SINR[j])
+            if not SINR_sum == 0.0 and channels_utils.W2dB(SINR_sum) >= 10.0:
+                gu.setCovered(True)
 
     def get_observation(self) -> int:
         return 0
@@ -240,4 +257,12 @@ class CruiseUAV(Cruise):
         return pygame_x, pygame_y
 
     def create_info(self) -> dict:
-        return {"info": "sono presenti " + str(self.gu_number) + " GU"}
+        connected = 0
+        covered = 0
+        for gu in self.gu:
+            if gu.connected:
+                if gu.covered:
+                    covered +=1
+                else:
+                    connected += 1
+        return {"info": "GU connessi:  " + str(connected) + ", GU coperti: " + str(covered)}

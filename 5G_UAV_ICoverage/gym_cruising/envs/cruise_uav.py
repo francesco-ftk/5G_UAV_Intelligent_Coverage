@@ -23,17 +23,15 @@ class CruiseUAV(Cruise):
     SINR = []
 
     UAV_NUMBER = 3
-    gu_number = 20
+    gu_number = 60
     UAV_RADIUS = 0.4
     MINIMUM_DISTANCE_BETWEEN_UAV = 10
     GU_RADIUS = 0.5
 
     SPAWN_GU_PROB = 0.005
     DISAPPEAR_GU_PROB = 0.001
-    UAV_ALTITUDE = 120
-    UAV_SENSING_ZONE_RADIUS = 50
 
-    GU_MEAN_SPEED = 8  # 1.4 m/s
+    GU_MEAN_SPEED = 10  # 1.4 m/s
     GU_STANDARD_DEVIATION = 0.3  # 0.3 m/s  # va a 0 a circa 3 volte la deviazione standard
 
     def __init__(self,
@@ -89,6 +87,7 @@ class CruiseUAV(Cruise):
                     repeat = True
 
     def calculate_PathLoss_with_Markov_Chain(self):
+        self.pathLoss = []
         for gu in self.gu:
             current_GU_PathLoss = []
             new_channels_state = []
@@ -104,6 +103,7 @@ class CruiseUAV(Cruise):
             gu.setChannelsState(new_channels_state)
 
     def calculate_SINR(self):
+        self.SINR = []
         for i in range(len(self.gu)):
             current_GU_SINR = []
             current_pathLoss = self.pathLoss[i]
@@ -144,7 +144,7 @@ class CruiseUAV(Cruise):
             current_SINR = self.SINR[i]
             SINR_sum = 0.0
             for j in range(len(self.uav)):
-                if current_SINR[j] >= 6.0:
+                if current_SINR[j] >= 7.0:
                     gu.setConnected(True)
                     SINR_sum += channels_utils.dB2Linear(current_SINR[j])
             if not SINR_sum == 0.0 and channels_utils.W2dB(SINR_sum) >= 10.0:

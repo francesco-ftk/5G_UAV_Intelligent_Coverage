@@ -5,7 +5,9 @@ import numpy as np
 import math
 import random
 
-env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=1)
+# env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=1)
+env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=2)
+# env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=3)
 
 env.action_space.seed(42)
 state, info = env.reset(seed=int(time.perf_counter()))  # 42

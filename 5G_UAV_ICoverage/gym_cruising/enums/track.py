@@ -35,4 +35,28 @@ class Track(Enum):
               )
               )
 
+    TRACK2 = (2,
+              (
+                  Line(Point(0, 0), Point(0, 1000)),
+                  Line(Point(0, 1000), Point(1000, 1000)),
+                  Line(Point(1000, 1000), Point(1000, 0)),
+                  Line(Point(1000, 0), Point(0, 0))
+              ),
+              (
+                  ((0, 1000), (0, 1000)),
+              )
+              )
+
+    TRACK3 = (3,
+              (
+                  Line(Point(0, 0), Point(0, 4000)),
+                  Line(Point(0, 4000), Point(4000, 4000)),
+                  Line(Point(4000, 4000), Point(4000, 0)),
+                  Line(Point(4000, 0), Point(0, 0))
+              ),
+              (
+                  ((0, 4000), (0, 4000)),
+              )
+              )
+
     # numero, linee muri e area dove oggetti possono apparire (spawnare)

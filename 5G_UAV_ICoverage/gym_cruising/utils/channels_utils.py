@@ -32,8 +32,8 @@ def get_PLoS(distance_uav_gu: float):
 
 # return transition matrix for Markov Chain channel state update
 def get_transition_matrix(distance_uav_gu: float, PLoS: float):
-    PLoS2NLoS = 2 * ((1 - PLoS) / (1 + math.exp(RATE_OF_GROWTH_G1 * distance_uav_gu)) - (1 - PLoS) / 2)  # g1
-    PNLoS2LoS = 2 * PLoS / (1 + math.exp(RATE_OF_GROWTH_G2 * distance_uav_gu))  # g2 # TODO check if correct
+    PLoS2NLoS = 2 * ((1 - PLoS) / (1 + math.exp(RATE_OF_GROWTH_G1 * (distance_uav_gu - UAV_ALTITUDE))) - (1 - PLoS) / 2)  # g1 (distance_uav_gu - UAV_ALTITUDE)
+    PNLoS2LoS = 2 * PLoS / (1 + math.exp(RATE_OF_GROWTH_G2 * (distance_uav_gu - UAV_ALTITUDE)))  # g2 (distance_uav_gu - UAV_ALTITUDE) # TODO check if correct
     return np.array([
         [1 - PLoS2NLoS, PLoS2NLoS],
         [PNLoS2LoS, 1 - PNLoS2LoS]

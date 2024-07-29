@@ -23,16 +23,16 @@ class CruiseUAV(Cruise):
     SINR = []
 
     UAV_NUMBER = 3
-    gu_number = 60
+    gu_number: int
     UAV_RADIUS = 0.4
-    MINIMUM_DISTANCE_BETWEEN_UAV = 10
+    MINIMUM_DISTANCE_BETWEEN_UAV = 65
     GU_RADIUS = 0.5
 
-    SPAWN_GU_PROB = 0.005
-    DISAPPEAR_GU_PROB = 0.001
+    SPAWN_GU_PROB = 0.0005
+    DISAPPEAR_GU_PROB = 0.0001
 
-    GU_MEAN_SPEED = 10  # 1.4 m/s
-    GU_STANDARD_DEVIATION = 0.3  # 0.3 m/s  # va a 0 a circa 3 volte la deviazione standard
+    GU_MEAN_SPEED = 4.86  # 4.86 m/s
+    GU_STANDARD_DEVIATION = 1.7  # va a 0 a circa 3 volte la deviazione standard
 
     def __init__(self,
                  render_mode=None, track_id: int = 1) -> None:
@@ -45,6 +45,7 @@ class CruiseUAV(Cruise):
     def reset(self, seed=None, options=None) -> Tuple[np.ndarray, dict]:
         self.uav = []
         self.gu = []
+        self.gu_number = 80
         return super().reset(seed=seed, options=options)
 
     def perform_action(self, action: int) -> None:
@@ -94,6 +95,7 @@ class CruiseUAV(Cruise):
             for index, uav in enumerate(self.uav):
                 distance = channels_utils.calculate_distance_uav_gu(uav.position, gu.position)
                 channel_PLoS = channels_utils.get_PLoS(distance)
+                # TODO nuova formula per transizione
                 transition_matrix = channels_utils.get_transition_matrix(distance, channel_PLoS)
                 current_state = np.random.choice(range(len(transition_matrix)), p=transition_matrix[gu.channels_state[index]])
                 new_channels_state.append(current_state)
@@ -144,10 +146,10 @@ class CruiseUAV(Cruise):
             current_SINR = self.SINR[i]
             SINR_sum = 0.0
             for j in range(len(self.uav)):
-                if current_SINR[j] >= 7.0:
+                if current_SINR[j] >= 5.0:
                     gu.setConnected(True)
                     SINR_sum += channels_utils.dB2Linear(current_SINR[j])
-            if not SINR_sum == 0.0 and channels_utils.W2dB(SINR_sum) >= 10.0:
+            if not SINR_sum == 0.0 and channels_utils.W2dB(SINR_sum) >= 7.0:
                 gu.setCovered(True)
 
     def get_observation(self) -> int:

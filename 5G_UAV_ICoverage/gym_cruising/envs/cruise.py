@@ -20,7 +20,7 @@ class Cruise(Env):
     can inherit from one another and only redefine certain methods.
     """
 
-    RESOLUTION = 1  # 1.0 metro => 3 pixels
+    RESOLUTION = 0.25  # 1.0 metro => 0.25 pixels
     WIDTH = 3
     X_OFFSET = 0  # 50
     Y_OFFSET = 0  # -50

@@ -7,12 +7,14 @@ class GU:
     connected: bool
     covered: bool
     channels_state = []
+    previous_position: Point
 
     def __init__(self, position: Point) -> None:
         self.position = position
         self.connected = False
         self.covered = False
         self.channels_state = []
+        self.previous_position = position
 
     def getColor(self):
         if self.connected:

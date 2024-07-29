@@ -23,6 +23,7 @@ class Track(Enum):
         obj.spawn_area = spawn_area
         return obj
 
+    # RESOLUTION = 3
     TRACK1 = (1,
               (
                   Line(Point(0, 0), Point(0, 300)),
@@ -35,19 +36,8 @@ class Track(Enum):
               )
               )
 
-    TRACK2 = (2,
-              (
-                  Line(Point(0, 0), Point(0, 1000)),
-                  Line(Point(0, 1000), Point(1000, 1000)),
-                  Line(Point(1000, 1000), Point(1000, 0)),
-                  Line(Point(1000, 0), Point(0, 0))
-              ),
-              (
-                  ((0, 1000), (0, 1000)),
-              )
-              )
-
-    TRACK3 = (3,
+    # RESOLUTION = 0.25
+    TRACK3 = (2,
               (
                   Line(Point(0, 0), Point(0, 4000)),
                   Line(Point(0, 4000), Point(4000, 4000)),
@@ -55,7 +45,7 @@ class Track(Enum):
                   Line(Point(4000, 0), Point(0, 0))
               ),
               (
-                  ((0, 4000), (0, 4000)),
+                  ((60, 3940), (60, 3940)),
               )
               )
 

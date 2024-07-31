@@ -10,6 +10,7 @@ nNLos = 23  # [dB] in the dense urban case
 nLos = 1.6  # [dB] in the dense urban case
 RATE_OF_GROWTH_G1 = -0.1
 RATE_OF_GROWTH_G2 = 0.1
+RATE_OF_GROWTH = -0.1
 TRASMISSION_POWER = 30  # 30 dBm
 CHANNEL_BANDWIDTH = 2e6  # 2 MHz
 POWER_SPECTRAL_DENSITY_OF_NOISE = -174  # -174 dBm/Hz
@@ -31,9 +32,20 @@ def get_PLoS(distance_uav_gu: float):
 
 
 # return transition matrix for Markov Chain channel state update
-def get_transition_matrix(distance_uav_gu: float, PLoS: float):
-    PLoS2NLoS = 2 * ((1 - PLoS) / (1 + math.exp(RATE_OF_GROWTH_G1 * (distance_uav_gu - UAV_ALTITUDE))) - (1 - PLoS) / 2)  # g1 (distance_uav_gu - UAV_ALTITUDE)
-    PNLoS2LoS = 2 * PLoS / (1 + math.exp(RATE_OF_GROWTH_G2 * (distance_uav_gu - UAV_ALTITUDE)))  # g2 (distance_uav_gu - UAV_ALTITUDE) # TODO check if correct
+def get_transition_matrix_old(distance_uav_gu: float, PLoS: float):
+    PLoS2NLoS = 2 * ((1 - PLoS) / (1 + math.exp(RATE_OF_GROWTH_G1 * (distance_uav_gu - UAV_ALTITUDE))) - (
+                1 - PLoS) / 2)  # g1 (distance_uav_gu - UAV_ALTITUDE)
+    PNLoS2LoS = 2 * PLoS / (1 + math.exp(RATE_OF_GROWTH_G2 * (
+                distance_uav_gu - UAV_ALTITUDE)))  # g2 (distance_uav_gu - UAV_ALTITUDE) # TODO check if correct
+    return np.array([
+        [1 - PLoS2NLoS, PLoS2NLoS],
+        [PNLoS2LoS, 1 - PNLoS2LoS]
+    ])
+
+
+def get_transition_matrix(relative_shift: float, PLoS: float):
+    PLoS2NLoS = 2 * ((1 - PLoS) / (1 + math.exp(RATE_OF_GROWTH * relative_shift)) - (1 - PLoS) / 2)  # g1
+    PNLoS2LoS = 2 * (PLoS / (1 + math.exp(RATE_OF_GROWTH * relative_shift)) - PLoS / 2)  # g2
     return np.array([
         [1 - PLoS2NLoS, PLoS2NLoS],
         [PNLoS2LoS, 1 - PNLoS2LoS]
@@ -55,7 +67,10 @@ def get_PathLoss(distance_uav_gu: float, current_state: int):
 
 
 def getSINR(path_loss: float, interference_path_loss: []):
-    return W2dB((dBm2Watt(TRASMISSION_POWER) * getChannelGain(path_loss)) / (getInterference(interference_path_loss) + dBm2Watt(POWER_SPECTRAL_DENSITY_OF_NOISE) * CHANNEL_BANDWIDTH))
+    return W2dB((dBm2Watt(TRASMISSION_POWER) * getChannelGain(path_loss)) / (
+                getInterference(interference_path_loss) + dBm2Watt(
+            POWER_SPECTRAL_DENSITY_OF_NOISE) * CHANNEL_BANDWIDTH))
+
 
 def getChannelGain(path_loss: float) -> float:
     return 1 / dB2Linear(path_loss)

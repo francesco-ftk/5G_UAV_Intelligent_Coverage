@@ -22,7 +22,7 @@ class CruiseUAV(Cruise):
     pathLoss = []
     SINR = []
 
-    UAV_NUMBER = 3
+    UAV_NUMBER = 1
     gu_number: int
     UAV_RADIUS = 0.4
     MINIMUM_DISTANCE_BETWEEN_UAV = 65
@@ -45,20 +45,29 @@ class CruiseUAV(Cruise):
     def reset(self, seed=None, options=None) -> Tuple[np.ndarray, dict]:
         self.uav = []
         self.gu = []
-        self.gu_number = 80
+        self.gu_number = 60
         return super().reset(seed=seed, options=options)
 
     def perform_action(self, action: int) -> None:
         self.update_GU()
 
     def update_GU(self):
-        # self.moveUAV()
+        # self.move_UAV()
         self.move_GU()
         # self.check_if_disappear_GU()
         # self.check_if_spawn_new_GU()
         self.calculate_PathLoss_with_Markov_Chain()
         self.calculate_SINR()
         self.check_connection_and_coverage_UAV_GU()
+
+    def move_UAV(self):
+        # TODO completare
+        area = self.np_random.choice(self.track.spawn_area)
+        for uav in self.uav:
+            previous_position = uav.position
+            new_position = Point(previous_position.x_coordinate, previous_position.y_coordinate)
+            uav.position = new_position
+            uav.previous_position = previous_position
 
 
     # Random walk the GU
@@ -84,6 +93,7 @@ class CruiseUAV(Cruise):
                 if new_position.is_in_area(area):
                     repeat = False
                     gu.position = new_position
+                    gu.previous_position = previous_position
                 else:
                     repeat = True
 
@@ -92,11 +102,13 @@ class CruiseUAV(Cruise):
         for gu in self.gu:
             current_GU_PathLoss = []
             new_channels_state = []
+            gu_shift = gu.position.calculate_distance(gu.previous_position)
             for index, uav in enumerate(self.uav):
                 distance = channels_utils.calculate_distance_uav_gu(uav.position, gu.position)
                 channel_PLoS = channels_utils.get_PLoS(distance)
-                # TODO nuova formula per transizione
-                transition_matrix = channels_utils.get_transition_matrix(distance, channel_PLoS)
+                relative_shift = uav.position.calculate_distance(uav.previous_position) + gu_shift
+                transition_matrix = channels_utils.get_transition_matrix(relative_shift, channel_PLoS)
+                # transition_matrix = channels_utils.get_transition_matrix_old(distance, channel_PLoS)
                 current_state = np.random.choice(range(len(transition_matrix)), p=transition_matrix[gu.channels_state[index]])
                 new_channels_state.append(current_state)
                 path_loss = channels_utils.get_PathLoss(distance, current_state)
@@ -146,10 +158,10 @@ class CruiseUAV(Cruise):
             current_SINR = self.SINR[i]
             SINR_sum = 0.0
             for j in range(len(self.uav)):
-                if current_SINR[j] >= 5.0:
+                if current_SINR[j] >= 7.0:
                     gu.setConnected(True)
                     SINR_sum += channels_utils.dB2Linear(current_SINR[j])
-            if not SINR_sum == 0.0 and channels_utils.W2dB(SINR_sum) >= 7.0:
+            if not SINR_sum == 0.0 and channels_utils.W2dB(SINR_sum) >= 10.0:
                 gu.setCovered(True)
 
     def get_observation(self) -> int:

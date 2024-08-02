@@ -10,12 +10,10 @@ nNLos = 23  # [dB] in the dense urban case
 nLos = 1.6  # [dB] in the dense urban case
 RATE_OF_GROWTH_G1 = -0.1
 RATE_OF_GROWTH_G2 = 0.1
-RATE_OF_GROWTH = -0.1
+RATE_OF_GROWTH = -0.05
 TRASMISSION_POWER = 30  # 30 dBm
 CHANNEL_BANDWIDTH = 2e6  # 2 MHz
 POWER_SPECTRAL_DENSITY_OF_NOISE = -174  # -174 dBm/Hz
-
-LOS = []
 
 
 # calculate distance between one UAV and one GU in air line

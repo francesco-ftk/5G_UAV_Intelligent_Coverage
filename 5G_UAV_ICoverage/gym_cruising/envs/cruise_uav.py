@@ -22,17 +22,17 @@ class CruiseUAV(Cruise):
     pathLoss = []
     SINR = []
 
-    UAV_NUMBER = 1
+    UAV_NUMBER = 3
     gu_number: int
     UAV_RADIUS = 0.4
     MINIMUM_DISTANCE_BETWEEN_UAV = 65
     GU_RADIUS = 0.5
 
     SPAWN_GU_PROB = 0.0005
-    DISAPPEAR_GU_PROB = 0.0001
+    disappear_gu_prob: float
 
-    GU_MEAN_SPEED = 4.86  # 4.86 m/s
-    GU_STANDARD_DEVIATION = 1.7  # va a 0 a circa 3 volte la deviazione standard
+    GU_MEAN_SPEED = 5.56  # 5.56 m/s
+    GU_STANDARD_DEVIATION = 1.97  # va a 0 a circa 3 volte la deviazione standard
 
     def __init__(self,
                  render_mode=None, track_id: int = 1) -> None:
@@ -46,6 +46,7 @@ class CruiseUAV(Cruise):
         self.uav = []
         self.gu = []
         self.gu_number = 60
+        self.disappear_gu_prob = self.SPAWN_GU_PROB * 4 / self.gu_number
         return super().reset(seed=seed, options=options)
 
     def perform_action(self, action: int) -> None:
@@ -54,8 +55,8 @@ class CruiseUAV(Cruise):
     def update_GU(self):
         # self.move_UAV()
         self.move_GU()
-        # self.check_if_disappear_GU()
-        # self.check_if_spawn_new_GU()
+        self.check_if_disappear_GU()
+        self.check_if_spawn_new_GU()
         self.calculate_PathLoss_with_Markov_Chain()
         self.calculate_SINR()
         self.check_connection_and_coverage_UAV_GU()
@@ -77,7 +78,9 @@ class CruiseUAV(Cruise):
             repeat = True
             while repeat:
                 previous_position = gu.position
-                distance = abs(self.np_random.normal(self.GU_MEAN_SPEED, self.GU_STANDARD_DEVIATION))
+                distance = self.np_random.normal(self.GU_MEAN_SPEED, self.GU_STANDARD_DEVIATION)
+                if distance < 0.0:
+                    distance = 0.0
                 direction = np.random.choice(['up', 'down', 'left', 'right'])
 
                 if direction == 'up':
@@ -133,7 +136,7 @@ class CruiseUAV(Cruise):
         index_to_remove = []
         for i in range(self.gu_number):
             sample = random.random()
-            if sample <= self.DISAPPEAR_GU_PROB:
+            if sample <= self.disappear_gu_prob:
                 index_to_remove.append(i)
                 disappeared_GU += 1
         index_to_remove = sorted(index_to_remove, reverse=True)
@@ -150,6 +153,8 @@ class CruiseUAV(Cruise):
                 y_coordinate = self.np_random.uniform(area[1][0], area[1][1])
                 self.gu.append(GU(Point(x_coordinate, y_coordinate)))
                 self.gu_number += 1
+        # update disappear gu probability
+        self.disappear_gu_prob = self.SPAWN_GU_PROB * 4 / self.gu_number
 
     def check_connection_and_coverage_UAV_GU(self):
         for i, gu in enumerate(self.gu):
@@ -161,7 +166,7 @@ class CruiseUAV(Cruise):
                 if current_SINR[j] >= 7.0:
                     gu.setConnected(True)
                     SINR_sum += channels_utils.dB2Linear(current_SINR[j])
-            if not SINR_sum == 0.0 and channels_utils.W2dB(SINR_sum) >= 10.0:
+            if not SINR_sum == 0.0 and channels_utils.W2dB(SINR_sum) >= 13.0:
                 gu.setCovered(True)
 
     def get_observation(self) -> int:
@@ -279,4 +284,4 @@ class CruiseUAV(Cruise):
                     covered +=1
                 else:
                     connected += 1
-        return {"info": "GU connessi:  " + str(connected) + ", GU coperti: " + str(covered)}
+        return {"info": "GU connessi:  " + str(connected) + ", GU coperti: " + str(covered) + " su " + str(self.gu_number) + " Ground Users"}

@@ -25,7 +25,7 @@ class CruiseUAV(Cruise):
     UAV_NUMBER = 3
     gu_number: int
     UAV_RADIUS = 0.4
-    MINIMUM_DISTANCE_BETWEEN_UAV = 65
+    MINIMUM_DISTANCE_BETWEEN_UAV = 1300
     GU_RADIUS = 0.5
 
     SPAWN_GU_PROB = 0.0005
@@ -33,6 +33,9 @@ class CruiseUAV(Cruise):
 
     GU_MEAN_SPEED = 5.56  # 5.56 m/s
     GU_STANDARD_DEVIATION = 1.97  # va a 0 a circa 3 volte la deviazione standard
+
+    CONNECTION_THRESHOLD = 7.0
+    COVERED_TRESHOLD = 10.0
 
     def __init__(self,
                  render_mode=None, track_id: int = 1) -> None:
@@ -161,12 +164,9 @@ class CruiseUAV(Cruise):
             gu.setConnected(False)
             gu.setCovered(False)
             current_SINR = self.SINR[i]
-            SINR_sum = 0.0
-            for j in range(len(self.uav)):
-                if current_SINR[j] >= 7.0:
-                    gu.setConnected(True)
-                    SINR_sum += channels_utils.dB2Linear(current_SINR[j])
-            if not SINR_sum == 0.0 and channels_utils.W2dB(SINR_sum) >= 13.0:
+            if any(SINR >= self.CONNECTION_THRESHOLD for SINR in current_SINR):
+                gu.setConnected(True)
+            if any(SINR >= self.COVERED_TRESHOLD for SINR in current_SINR):
                 gu.setCovered(True)
 
     def get_observation(self) -> int:

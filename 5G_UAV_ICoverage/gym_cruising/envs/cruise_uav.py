@@ -5,6 +5,7 @@ from typing import Optional, Tuple
 
 import numpy as np
 import pygame
+from gymnasium.spaces import Box
 from gymnasium.vector.utils import spaces
 from pygame import Surface
 
@@ -37,12 +38,20 @@ class CruiseUAV(Cruise):
     CONNECTION_THRESHOLD = 7.0
     COVERED_TRESHOLD = 10.0
 
+    low_observation: float
+    high_observation: float
+
+    gu_connected = 0
+
     def __init__(self,
                  render_mode=None, track_id: int = 1) -> None:
         super().__init__(render_mode, track_id)
 
-        self.observation_space = spaces.Discrete(1)
+        spawn_area = self.np_random.choice(self.track.spawn_area)
+        self.low_observation = float(spawn_area[0][0])
+        self.high_observation = float(spawn_area[0][1])
 
+        self.observation_space = spaces.Discrete(1)  # TODO mettere Box!
         self.action_space = spaces.Discrete(2)
 
     def reset(self, seed=None, options=None) -> Tuple[np.ndarray, dict]:
@@ -72,7 +81,6 @@ class CruiseUAV(Cruise):
             new_position = Point(previous_position.x_coordinate, previous_position.y_coordinate)
             uav.position = new_position
             uav.previous_position = previous_position
-
 
     # Random walk the GU
     def move_GU(self):
@@ -115,7 +123,8 @@ class CruiseUAV(Cruise):
                 relative_shift = uav.position.calculate_distance(uav.previous_position) + gu_shift
                 transition_matrix = channels_utils.get_transition_matrix(relative_shift, channel_PLoS)
                 # transition_matrix = channels_utils.get_transition_matrix_old(distance, channel_PLoS)
-                current_state = np.random.choice(range(len(transition_matrix)), p=transition_matrix[gu.channels_state[index]])
+                current_state = np.random.choice(range(len(transition_matrix)),
+                                                 p=transition_matrix[gu.channels_state[index]])
                 new_channels_state.append(current_state)
                 path_loss = channels_utils.get_PathLoss(distance, current_state)
                 current_GU_PathLoss.append(path_loss)
@@ -128,11 +137,10 @@ class CruiseUAV(Cruise):
             current_GU_SINR = []
             current_pathLoss = self.pathLoss[i]
             for j in range(len(self.uav)):
-               copy_list = current_pathLoss.copy()
-               del copy_list[j]
-               current_GU_SINR.append(channels_utils.getSINR(current_pathLoss[j], copy_list))
+                copy_list = current_pathLoss.copy()
+                del copy_list[j]
+                current_GU_SINR.append(channels_utils.getSINR(current_pathLoss[j], copy_list))
             self.SINR.append(current_GU_SINR)
-
 
     def check_if_disappear_GU(self):
         disappeared_GU = 0
@@ -169,8 +177,18 @@ class CruiseUAV(Cruise):
             if any(SINR >= self.COVERED_TRESHOLD for SINR in current_SINR):
                 gu.setCovered(True)
 
-    def get_observation(self) -> int:
-        return 0
+    def get_observation(self) -> np.ndarray:
+        self.observation_space = Box(low=self.low_observation,
+                                     high=self.high_observation,
+                                     shape=(2, self.UAV_NUMBER + self.gu_connected),
+                                     dtype=np.float64)
+        observation = np.array([[self.uav[0].position.x_coordinate, self.uav[0].position.y_coordinate]])
+        for i in range(1, self.UAV_NUMBER):
+            observation = np.append(observation, np.array([[self.uav[i].position.x_coordinate, self.uav[i].position.y_coordinate]]), axis=0)
+        for gu in self.gu:
+            if gu.connected:
+                observation = np.append(observation, np.array([[gu.position.x_coordinate, gu.position.y_coordinate]]), axis=0)
+        return observation
 
     def check_if_terminated(self) -> bool:
         return False
@@ -280,8 +298,9 @@ class CruiseUAV(Cruise):
         covered = 0
         for gu in self.gu:
             if gu.connected:
+                connected += 1
                 if gu.covered:
-                    covered +=1
-                else:
-                    connected += 1
-        return {"info": "GU connessi:  " + str(connected) + ", GU coperti: " + str(covered) + " su " + str(self.gu_number) + " Ground Users"}
+                    covered += 1
+        self.gu_connected = connected
+        return {"GU connessi":  str(connected), "GU ben coperti": str(covered), "Ground Users": str(
+            self.gu_number)}

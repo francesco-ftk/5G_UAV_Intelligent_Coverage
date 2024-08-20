@@ -51,7 +51,11 @@ class CruiseUAV(Cruise):
         self.low_observation = float(spawn_area[0][0])
         self.high_observation = float(spawn_area[0][1])
 
-        self.observation_space = spaces.Discrete(1)  # TODO mettere Box!
+        self.observation_space = Box(low=self.low_observation,
+                                     high=self.high_observation,
+                                     shape=(2, self.UAV_NUMBER + self.gu_connected),
+                                     dtype=np.float64)
+
         self.action_space = spaces.Discrete(2)
 
     def reset(self, seed=None, options=None) -> Tuple[np.ndarray, dict]:
@@ -122,9 +126,7 @@ class CruiseUAV(Cruise):
                 channel_PLoS = channels_utils.get_PLoS(distance)
                 relative_shift = uav.position.calculate_distance(uav.previous_position) + gu_shift
                 transition_matrix = channels_utils.get_transition_matrix(relative_shift, channel_PLoS)
-                # transition_matrix = channels_utils.get_transition_matrix_old(distance, channel_PLoS)
-                current_state = np.random.choice(range(len(transition_matrix)),
-                                                 p=transition_matrix[gu.channels_state[index]])
+                current_state = np.random.choice(range(len(transition_matrix)), p=transition_matrix[gu.channels_state[index]])
                 new_channels_state.append(current_state)
                 path_loss = channels_utils.get_PathLoss(distance, current_state)
                 current_GU_PathLoss.append(path_loss)

@@ -28,19 +28,6 @@ def get_PLoS(distance_uav_gu: float):
     elevation_angle = math.degrees(math.asin(UAV_ALTITUDE / distance_uav_gu))
     return 1 / (1 + a * math.exp((-1) * b * (elevation_angle - a)))
 
-
-# return transition matrix for Markov Chain channel state update
-def get_transition_matrix_old(distance_uav_gu: float, PLoS: float):
-    PLoS2NLoS = 2 * ((1 - PLoS) / (1 + math.exp(RATE_OF_GROWTH_G1 * (distance_uav_gu - UAV_ALTITUDE))) - (
-                1 - PLoS) / 2)  # g1 (distance_uav_gu - UAV_ALTITUDE)
-    PNLoS2LoS = 2 * PLoS / (1 + math.exp(RATE_OF_GROWTH_G2 * (
-                distance_uav_gu - UAV_ALTITUDE)))  # g2 (distance_uav_gu - UAV_ALTITUDE) # TODO check if correct
-    return np.array([
-        [1 - PLoS2NLoS, PLoS2NLoS],
-        [PNLoS2LoS, 1 - PNLoS2LoS]
-    ])
-
-
 def get_transition_matrix(relative_shift: float, PLoS: float):
     PLoS2NLoS = 2 * ((1 - PLoS) / (1 + math.exp(RATE_OF_GROWTH * relative_shift)) - (1 - PLoS) / 2)  # g1
     PNLoS2LoS = 2 * (PLoS / (1 + math.exp(RATE_OF_GROWTH * relative_shift)) - PLoS / 2)  # g2

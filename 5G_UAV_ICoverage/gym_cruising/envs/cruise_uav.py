@@ -24,10 +24,9 @@ class CruiseUAV(Cruise):
     SINR = []
 
     UAV_NUMBER = 3
+    STARTING_GU_NUMBER = 60
     gu_number: int
-    UAV_RADIUS = 0.4
     MINIMUM_DISTANCE_BETWEEN_UAV = 1300
-    GU_RADIUS = 0.5
 
     SPAWN_GU_PROB = 0.0005
     disappear_gu_prob: float
@@ -61,7 +60,7 @@ class CruiseUAV(Cruise):
     def reset(self, seed=None, options=None) -> Tuple[np.ndarray, dict]:
         self.uav = []
         self.gu = []
-        self.gu_number = 60
+        self.gu_number = self.STARTING_GU_NUMBER
         self.disappear_gu_prob = self.SPAWN_GU_PROB * 4 / self.gu_number
         return super().reset(seed=seed, options=options)
 
@@ -126,7 +125,8 @@ class CruiseUAV(Cruise):
                 channel_PLoS = channels_utils.get_PLoS(distance)
                 relative_shift = uav.position.calculate_distance(uav.previous_position) + gu_shift
                 transition_matrix = channels_utils.get_transition_matrix(relative_shift, channel_PLoS)
-                current_state = np.random.choice(range(len(transition_matrix)), p=transition_matrix[gu.channels_state[index]])
+                current_state = np.random.choice(range(len(transition_matrix)),
+                                                 p=transition_matrix[gu.channels_state[index]])
                 new_channels_state.append(current_state)
                 path_loss = channels_utils.get_PathLoss(distance, current_state)
                 current_GU_PathLoss.append(path_loss)
@@ -186,10 +186,13 @@ class CruiseUAV(Cruise):
                                      dtype=np.float64)
         observation = np.array([[self.uav[0].position.x_coordinate, self.uav[0].position.y_coordinate]])
         for i in range(1, self.UAV_NUMBER):
-            observation = np.append(observation, np.array([[self.uav[i].position.x_coordinate, self.uav[i].position.y_coordinate]]), axis=0)
+            observation = np.append(observation,
+                                    np.array([[self.uav[i].position.x_coordinate, self.uav[i].position.y_coordinate]]),
+                                    axis=0)
         for gu in self.gu:
             if gu.connected:
-                observation = np.append(observation, np.array([[gu.position.x_coordinate, gu.position.y_coordinate]]), axis=0)
+                observation = np.append(observation, np.array([[gu.position.x_coordinate, gu.position.y_coordinate]]),
+                                        axis=0)
         return observation
 
     def check_if_terminated(self) -> bool:
@@ -257,23 +260,9 @@ class CruiseUAV(Cruise):
                              self.convert_point(wall.end),
                              self.WIDTH)
 
-        # GU
-        # for gu in self.gu:
-        #     pygame.draw.circle(canvas,
-        #                        gu.getColor(),
-        #                        self.convert_point(gu.position),
-        #                        self.GU_RADIUS * self.RESOLUTION)
-
         # GU image
         for gu in self.gu:
             canvas.blit(pygame.image.load(gu.getImage()), self.image_convert_point(gu.position))
-
-        # UAV
-        # for uav in self.uav:
-        #     pygame.draw.circle(canvas,
-        #                        Color.BLUE.value,
-        #                        self.convert_point(uav.position),
-        #                        self.UAV_RADIUS * self.RESOLUTION)
 
         # UAV image
         icon_drone = pygame.image.load('./gym_cruising/images/drone30.png')
@@ -304,5 +293,5 @@ class CruiseUAV(Cruise):
                 if gu.covered:
                     covered += 1
         self.gu_connected = connected
-        return {"GU connessi":  str(connected), "GU ben coperti": str(covered), "Ground Users": str(
+        return {"GU connessi": str(connected), "GU ben coperti": str(covered), "Ground Users": str(
             self.gu_number)}

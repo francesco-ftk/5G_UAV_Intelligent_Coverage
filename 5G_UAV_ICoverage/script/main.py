@@ -16,7 +16,7 @@ from gym_cruising.neural_network.custom_transformer_encoder_decoder import Custo
 UAV_NUMBER = 3
 GU_NUMBER = 60
 
-TRAIN = False
+TRAIN = True
 EPS_START = 0.9  # the starting value of epsilon
 EPS_END = 0.3  # the final value of epsilon
 EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
@@ -34,32 +34,30 @@ seq_len_lstm = 1
 num_layer_lstm = 1
 batch_size = 117
 
-token_hidden_states = []
-
 # if gpu is to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # print("DEVICE:", device)
 
 if TRAIN:
-    # env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=1)
-    env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=2)
+    env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=2)
 
     env.action_space.seed(42)
     state, info = env.reset(seed=int(time.perf_counter()))  # 42
 
     transformer_encoder_decoder_net = CustomTransformerEncoderDecoder()
     lstm_net = LSTM(input_size_lstm, hidden_size_lstm, output_size_lstm, seq_len_lstm, num_layer_lstm)
+    token_hidden_states = torch.empty(UAV_NUMBER, batch_size, hidden_size_lstm)
     for i in range(UAV_NUMBER):
-        token_hidden_states[i] = hidden_state = torch.zeros(num_layer_lstm, batch_size, hidden_size_lstm)
+        token_hidden_states[i] = torch.zeros(num_layer_lstm, batch_size, hidden_size_lstm)
 
     # COMMENT FOR INITIAL TRAINING
     # PATH = '../neural_network/Base.pth'
     # transformer_encoder_decoder_net.load_state_dict(torch.load(PATH))
     # lstm_net.load_state_dict(torch.load(PATH))
 
-    optimizer = optim.Adam(lstm_net.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
-    replay_buffer = ReplayMemory(6000)
+    # optimizer = optim.Adam(lstm_net.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
+    # replay_buffer = ReplayMemory(6000)
 
 
     def normalize(state: np.ndarray) -> np.ndarray:
@@ -72,7 +70,6 @@ if TRAIN:
     def select_actions_epsilon(state):
         action = []
         global time_steps_done
-        global token_hidden_states
         global UAV_NUMBER
         time_steps_done += 1
         for i in range(UAV_NUMBER):
@@ -127,14 +124,13 @@ if TRAIN:
     #     torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
     #     optimizer.step()
 
-
     if torch.cuda.is_available():
-        num_episodes = 2001
+        num_episodes = 11
     else:
         num_episodes = 10
 
     # Writer will output to ./runs/ directory by default
-    writer = SummaryWriter("runs")
+    # writer = SummaryWriter("runs")
 
     print("START UAV COOPERATIVE COVERAGE TRAINING")
 
@@ -142,16 +138,19 @@ if TRAIN:
         print("Episode: ", i_episode)
         state, info = env.reset(seed=int(time.perf_counter()))
         state = normalize(state)
-        state = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
+        uav_positions, connected_gu_positions = np.split(state, [UAV_NUMBER], axis=0)
+        uav_positions = torch.from_numpy(uav_positions).float()
+        connected_gu_positions = torch.from_numpy(connected_gu_positions).float()
+        # state = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
         steps = 0
         while True:
+            tokens = transformer_encoder_decoder_net(connected_gu_positions, uav_positions)
             # TODO inserire transformer e LSTM
             actions = select_actions_epsilon(state)  # TODO capire come fatta azione
             next_state, reward, terminated, truncated, _ = env.step(actions)
             next_state = normalize(next_state)  # Normalize in [0,1]
-            if steps >= 100:
+            if steps >= 120:
                 if not terminated:
-                    reward = -100
                     truncated = True
             reward = torch.tensor([reward], device=device)
             done = terminated or truncated
@@ -162,48 +161,59 @@ if TRAIN:
                 next_state = torch.tensor(next_state, dtype=torch.float32, device=device).unsqueeze(0)
 
             # Store the transition in memory
-            replay_buffer.push(state, actions, next_state, reward)
+            # replay_buffer.push(state, actions, next_state, reward)
 
             # Move to the next state
             state = next_state
 
             # Perform one step of the optimization
-            optimize_model()
+            # optimize_model()
             steps += 1
 
             if done:
-                policy_net_state_dict = policy_net.state_dict()
-                target_net.load_state_dict(policy_net_state_dict)
                 break
 
-        if i_episode % 50 == 0:
-            state, info = env.reset()
-            steps = 0
-            while True:
-                state = normalize(state)
-                state = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
-                action = policy_net(state).max(1)[1].view(1, 1)
-                state, reward, terminated, truncated, _ = env.step(action.item())
-                steps += 1
-                if steps >= 100:
-                    truncated = True
+        # if i_episode % 50 == 0:
+        #     state, info = env.reset()
+        #     steps = 0
+        #     while True:
+        #         state = normalize(state)
+        #         state = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
+        #         action = policy_net(state).max(1)[1].view(1, 1)
+        #         state, reward, terminated, truncated, _ = env.step(action.item())
+        #         steps += 1
+        #         if steps >= 100:
+        #             truncated = True
+        #
+        #         if terminated or truncated:
+        #             # tensorboard --logdir=runs
+        #             writer.add_scalars('Reward', {'policy_net': reward}, i_episode)
+        #             break
 
-                if terminated or truncated:
-                    # tensorboard --logdir=runs
-                    writer.add_scalars('Reward', {'policy_net': reward}, i_episode)
-                    break
-
-    PATH = '../neural_network/last.pth'
-    torch.save(lstm_net.state_dict(), PATH)
-    writer.close()
+    # PATH = '../neural_network/last.pth'
+    # torch.save(lstm_net.state_dict(), PATH)
+    # writer.close()
     env.close()
     print('TRAINING COMPLETE')
+else:
 
-for _ in range(100):
-    observation, reward, terminated, truncated, info = env.step(0)
-    print(f'observation={observation} info={info}')
+    env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=2)
 
-    if terminated:
-        observation, info = env.reset()
+    env.action_space.seed(42)
+    state, info = env.reset(seed=int(time.perf_counter()))  # 42
 
-env.close()
+    for _ in range(100):
+        state, reward, terminated, truncated, info = env.step(0)
+        print(f'observation={state} info={info}')
+
+        if terminated:
+            observation, info = env.reset()
+
+    env.close()
+
+    # policy_net = DQLN(n_observations, n_actions).to(device)
+    # PATH = '../neural_network/Best.pth'
+    # policy_net.load_state_dict(torch.load(PATH))
+    # not_terminated = 0
+    # success = 0
+    # TEST_EPISODES = 100

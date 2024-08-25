@@ -208,6 +208,9 @@ class CruiseUAV(Cruise):
     def init_environment(self, options: Optional[dict] = None) -> None:
         self.init_uav()
         self.init_gu()
+        self.calculate_PathLoss_with_Markov_Chain()
+        self.calculate_SINR()
+        self.check_connection_and_coverage_UAV_GU()
 
     def init_uav(self) -> None:
         area = self.np_random.choice(self.track.spawn_area)

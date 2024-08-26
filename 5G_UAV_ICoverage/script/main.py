@@ -29,10 +29,10 @@ MIN_POSITION = 0.0
 time_steps_done = 0
 input_size_lstm = 16
 hidden_size_lstm = 8
-output_size_lstm = 2
+output_size_lstm = 4  # [μx, μy, σx, σy]
 seq_len_lstm = 1
 num_layer_lstm = 1
-batch_size = 117
+batch_size = 1
 
 # if gpu is to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -48,8 +48,11 @@ if TRAIN:
     transformer_encoder_decoder_net = CustomTransformerEncoderDecoder()
     lstm_net = LSTM(input_size_lstm, hidden_size_lstm, output_size_lstm, seq_len_lstm, num_layer_lstm)
     token_hidden_states = torch.empty(UAV_NUMBER, batch_size, hidden_size_lstm)
+    cell_states = torch.empty(UAV_NUMBER, batch_size, hidden_size_lstm)
     for i in range(UAV_NUMBER):
         token_hidden_states[i] = torch.zeros(num_layer_lstm, batch_size, hidden_size_lstm)
+        cell_states[i] = cell_state = torch.zeros(num_layer_lstm, batch_size, hidden_size_lstm)
+
 
     # COMMENT FOR INITIAL TRAINING
     # PATH = '../neural_network/Base.pth'
@@ -59,7 +62,6 @@ if TRAIN:
     # optimizer = optim.Adam(lstm_net.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
     # replay_buffer = ReplayMemory(6000)
 
-
     def normalize(state: np.ndarray) -> np.ndarray:
         nornmalized_state = np.ndarray(shape=state.shape, dtype=np.float64)
         for i in range(len(state)):
@@ -67,19 +69,22 @@ if TRAIN:
         return nornmalized_state
 
 
-    def select_actions_epsilon(state):
+    def select_actions_epsilon(tokens):
         action = []
         global time_steps_done
         global UAV_NUMBER
         time_steps_done += 1
         for i in range(UAV_NUMBER):
-            sample = random.random()
+            sample = 1.0 # random.random()
             eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1.0 * time_steps_done / EPS_DECAY)
             if sample > eps_threshold:
                 with torch.no_grad():
-                    # return mean and covariance according to LSTM
-                    output, token_hidden_states[i] = lstm_net(state, 1, token_hidden_states[i])
-                    action.append(output)  # FIXME
+                    # return mean and covariance according to LSTM [μx, μy, σx, σy]
+                    output, (hs, cs) = lstm_net(tokens[i], 1, token_hidden_states[i].unsqueeze(0), cell_states[i].unsqueeze(0))
+                    token_hidden_states[i] = hs
+                    cell_states[i] = cs
+                    output = output.numpy().reshape(4)
+                    action.append(output)
             else:
                 torch.tensor([[env.action_space.sample()]], device=device, dtype=torch.long)  # TODO
         return action
@@ -146,7 +151,7 @@ if TRAIN:
         while True:
             tokens = transformer_encoder_decoder_net(connected_gu_positions, uav_positions)
             # TODO inserire transformer e LSTM
-            actions = select_actions_epsilon(state)  # TODO capire come fatta azione
+            actions = select_actions_epsilon(tokens)  # TODO capire come fatta azione
             next_state, reward, terminated, truncated, _ = env.step(actions)
             next_state = normalize(next_state)  # Normalize in [0,1]
             if steps >= 120:

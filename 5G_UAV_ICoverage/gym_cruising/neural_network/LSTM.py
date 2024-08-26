@@ -12,9 +12,8 @@ class LSTM(nn.Module):
         self.lstm = nn.LSTM(self.input_size, self.latent_size, self.n_layers, batch_first=True)
         self.fl1 = nn.Linear(self.latent_size, output_size)
 
-    def forward(self, x, batch_size, hidden_state):
-        cell_state = torch.zeros(self.n_layers, batch_size, self.latent_size)
+    def forward(self, x, batch_size, hidden_state, cell_state):
         hidden = (hidden_state, cell_state)
-        x = x.reshape([batch_size, self.seq_len, self.input_size])
+        x = x.reshape([self.seq_len, batch_size, self.input_size])
         y, hidden = self.lstm(x, hidden)
         return self.fl1(hidden[0]), hidden

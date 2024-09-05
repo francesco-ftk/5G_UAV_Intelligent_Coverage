@@ -75,7 +75,7 @@ if TRAIN:
         global UAV_NUMBER
         time_steps_done += 1
         for i in range(UAV_NUMBER):
-            sample = 1.0 # random.random()
+            sample = 1.0 # random.random() TODO scommentare per usare eps-greedy
             eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1.0 * time_steps_done / EPS_DECAY)
             if sample > eps_threshold:
                 with torch.no_grad():

@@ -12,7 +12,6 @@ import random
 
 from gym_cruising.memory.replay_memory import ReplayMemory, Transition
 from gym_cruising.neural_network.LSTM import LSTM
-from gym_cruising.neural_network.custom_transformer_encoder_decoder import CustomTransformerEncoderDecoder
 from gym_cruising.neural_network.deep_Q_net import DeepQNet
 from gym_cruising.neural_network.transformer_encoder_decoder import TransformerEncoderDecoder
 

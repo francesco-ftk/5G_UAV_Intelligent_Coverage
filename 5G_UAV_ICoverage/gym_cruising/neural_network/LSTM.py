@@ -12,8 +12,8 @@ class LSTM(nn.Module):
         self.lstm = nn.LSTM(self.input_size, self.latent_size, self.n_layers, batch_first=True)
         self.fl1 = nn.Linear(self.latent_size, output_size)
 
-    def forward(self, x, batch_size, hidden_state, cell_state):
+    def forward(self, current_state, batch_size, hidden_state, cell_state):
         hidden = (hidden_state, cell_state)
-        x = x.reshape([self.seq_len, batch_size, self.input_size])
-        y, hidden = self.lstm(x, hidden)
+        current_state = current_state.reshape([self.seq_len, batch_size, self.input_size])
+        y, hidden = self.lstm(current_state, hidden)
         return self.fl1(hidden[0]), hidden

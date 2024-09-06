@@ -12,6 +12,8 @@ import random
 from gym_cruising.memory.replay_memory import ReplayMemory, Transition
 from gym_cruising.neural_network.LSTM import LSTM
 from gym_cruising.neural_network.custom_transformer_encoder_decoder import CustomTransformerEncoderDecoder
+from gym_cruising.neural_network.deep_Q_net import DeepQNet
+from gym_cruising.neural_network.transformer_encoder_decoder import TransformerEncoderDecoder
 
 UAV_NUMBER = 3
 GU_NUMBER = 60
@@ -29,7 +31,7 @@ MIN_POSITION = 0.0
 time_steps_done = 0
 input_size_lstm = 16
 hidden_size_lstm = 8
-output_size_lstm = 4  # [μx, μy, σx, σy]
+output_size_lstm = 2  # [μx, μy]
 seq_len_lstm = 1
 num_layer_lstm = 1
 batch_size = 1
@@ -44,6 +46,31 @@ if TRAIN:
 
     env.action_space.seed(42)
     state, info = env.reset(seed=int(time.perf_counter()))  # 42
+
+    # ACTOR POLICY NET policy
+    transformer_policy = TransformerEncoderDecoder().to(device)
+    lstm_policy = LSTM(input_size_lstm, hidden_size_lstm, output_size_lstm, seq_len_lstm, num_layer_lstm).to(device)
+
+    # CRITIC Q NET policy
+    deep_Q_net_policy = DeepQNet(hidden_size_lstm + hidden_size_lstm, output_size_lstm).to(device)
+
+    # COMMENT FOR INITIAL TRAINING
+    # PATH_TRANSFORMER = '../neural_network/Base.pth'
+    # transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
+    # PATH_LSTM = '../neural_network/Base.pth'
+    # lstm_policy.load_state_dict(torch.load(PATH_LSTM))
+    # PATH_DEEP_Q = '../neural_network/Base.pth'
+    # deep_Q_net_policy.load_state_dict(torch.load(PATH_DEEP_Q))
+
+    # ACTOR POLICY NET target
+    transformer_target = TransformerEncoderDecoder().to(device)
+    lstm_target = LSTM(input_size_lstm, hidden_size_lstm, output_size_lstm, seq_len_lstm, num_layer_lstm).to(device)
+
+    # CRITIC Q NET target
+    deep_Q_net_target = DeepQNet(hidden_size_lstm + hidden_size_lstm, output_size_lstm).to(device)
+
+    arget_net.load_state_dict(policy_net.state_dict())
+
 
     transformer_encoder_decoder_net = CustomTransformerEncoderDecoder()
     lstm_net = LSTM(input_size_lstm, hidden_size_lstm, output_size_lstm, seq_len_lstm, num_layer_lstm)

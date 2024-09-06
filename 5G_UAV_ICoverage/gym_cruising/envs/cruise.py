@@ -39,11 +39,11 @@ class Cruise(Env):
         self.window = None
         self.clock = None
 
-    def step(self, action) -> Tuple[np.ndarray, float, bool, bool, dict]:
+    def step(self, actions) -> Tuple[np.ndarray, float, bool, bool, dict]:
 
-        assert self.action_space.contains(action)
+        assert self.action_space.contains(actions)
 
-        self.perform_action(action)
+        self.perform_action(actions)
 
         info = self.create_info()
         state = self.get_observation()
@@ -57,7 +57,7 @@ class Cruise(Env):
         return state, reward, terminated, truncated, info
 
     @abstractmethod
-    def perform_action(self, action) -> None:
+    def perform_action(self, actions) -> None:
         pass
 
     @abstractmethod

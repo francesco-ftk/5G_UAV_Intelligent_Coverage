@@ -40,6 +40,8 @@ class CruiseUAV(Cruise):
     low_observation: float
     high_observation: float
 
+    MAX_SPEED_UAV = 5.86  # m/s
+
     gu_connected = 0
 
     def __init__(self,
@@ -52,10 +54,13 @@ class CruiseUAV(Cruise):
 
         self.observation_space = Box(low=self.low_observation,
                                      high=self.high_observation,
-                                     shape=(2, self.UAV_NUMBER + self.gu_connected),
+                                     shape=(self.UAV_NUMBER + self.gu_connected, 2),
                                      dtype=np.float64)
 
-        self.action_space = spaces.Discrete(2)
+        self.action_space = Box(low=(-1) * self.MAX_SPEED_UAV,
+                                high=self.MAX_SPEED_UAV,
+                                shape=(self.UAV_NUMBER, 2),
+                                dtype=np.float64)
 
     def reset(self, seed=None, options=None) -> Tuple[np.ndarray, dict]:
         self.uav = []
@@ -64,24 +69,22 @@ class CruiseUAV(Cruise):
         self.disappear_gu_prob = self.SPAWN_GU_PROB * 4 / self.gu_number
         return super().reset(seed=seed, options=options)
 
-    def perform_action(self, action: int) -> None:
+    def perform_action(self, actions) -> None:
+        self.move_UAV(actions)
         self.update_GU()
-
-    def update_GU(self):
-        # self.move_UAV()
-        self.move_GU()
-        self.check_if_disappear_GU()
-        self.check_if_spawn_new_GU()
         self.calculate_PathLoss_with_Markov_Chain()
         self.calculate_SINR()
         self.check_connection_and_coverage_UAV_GU()
 
-    def move_UAV(self):
-        # TODO completare
-        area = self.np_random.choice(self.track.spawn_area)
-        for uav in self.uav:
+    def update_GU(self):
+        self.move_GU()
+        self.check_if_disappear_GU()
+        self.check_if_spawn_new_GU()
+
+    def move_UAV(self, actions):
+        for i, uav in enumerate(self.uav):
             previous_position = uav.position
-            new_position = Point(previous_position.x_coordinate, previous_position.y_coordinate)
+            new_position = Point(previous_position.x_coordinate + actions[i][0], previous_position.y_coordinate + actions[i][1])
             uav.position = new_position
             uav.previous_position = previous_position
 
@@ -106,6 +109,7 @@ class CruiseUAV(Cruise):
                 elif direction == 'right':
                     new_position = Point(previous_position.x_coordinate + distance, previous_position.y_coordinate)
 
+                # check if GU exit from environment
                 # TODO review if it's ok
                 if new_position.is_in_area(area):
                     repeat = False
@@ -182,7 +186,7 @@ class CruiseUAV(Cruise):
     def get_observation(self) -> np.ndarray:
         self.observation_space = Box(low=self.low_observation,
                                      high=self.high_observation,
-                                     shape=(2, self.UAV_NUMBER + self.gu_connected),
+                                     shape=(self.UAV_NUMBER + self.gu_connected, 2),
                                      dtype=np.float64)
         observation = np.array([[self.uav[0].position.x_coordinate, self.uav[0].position.y_coordinate]])
         for i in range(1, self.UAV_NUMBER):
@@ -196,6 +200,10 @@ class CruiseUAV(Cruise):
         return observation
 
     def check_if_terminated(self) -> bool:
+        area = self.np_random.choice(self.track.spawn_area)
+        for uav in self.uav:
+            if not uav.position.is_in_area(area):
+                return True
         return False
 
     def check_if_truncated(self) -> bool:

@@ -1,5 +1,6 @@
 import time
 import gymnasium as gym
+import numpy
 import torch
 import torch.optim as optim
 import torch.nn.functional as F
@@ -28,13 +29,15 @@ LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decre
 MAX_POSITION = 4000.0
 MIN_POSITION = 0.0
 
-time_steps_done = 0
+time_steps_done = -1
 input_size_lstm = 16
 hidden_size_lstm = 8
 output_size_lstm = 2  # [μx, μy]
 seq_len_lstm = 1
 num_layer_lstm = 1
 batch_size = 1
+
+MAX_SPEED_UAV = 5.86  # m/s
 
 # if gpu is to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -55,11 +58,11 @@ if TRAIN:
     deep_Q_net_policy = DeepQNet(hidden_size_lstm + hidden_size_lstm, output_size_lstm).to(device)
 
     # COMMENT FOR INITIAL TRAINING
-    # PATH_TRANSFORMER = '../neural_network/Base.pth'
+    # PATH_TRANSFORMER = '../neural_network/BaseTransformer.pth'
     # transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    # PATH_LSTM = '../neural_network/Base.pth'
+    # PATH_LSTM = '../neural_network/BaseLSTM.pth'
     # lstm_policy.load_state_dict(torch.load(PATH_LSTM))
-    # PATH_DEEP_Q = '../neural_network/Base.pth'
+    # PATH_DEEP_Q = '../neural_network/BaseDeepQ.pth'
     # deep_Q_net_policy.load_state_dict(torch.load(PATH_DEEP_Q))
 
     # ACTOR POLICY NET target
@@ -69,25 +72,25 @@ if TRAIN:
     # CRITIC Q NET target
     deep_Q_net_target = DeepQNet(hidden_size_lstm + hidden_size_lstm, output_size_lstm).to(device)
 
-    arget_net.load_state_dict(policy_net.state_dict())
+    # set target parameters equal to main parameters
+    transformer_target.load_state_dict(transformer_policy.state_dict())
+    lstm_target.load_state_dict(lstm_policy.state_dict())
+    deep_Q_net_target.load_state_dict(deep_Q_net_policy.state_dict())
 
-
-    transformer_encoder_decoder_net = CustomTransformerEncoderDecoder()
-    lstm_net = LSTM(input_size_lstm, hidden_size_lstm, output_size_lstm, seq_len_lstm, num_layer_lstm)
-    token_hidden_states = torch.empty(UAV_NUMBER, batch_size, hidden_size_lstm)
-    cell_states = torch.empty(UAV_NUMBER, batch_size, hidden_size_lstm)
+    lstm_hidden_states_policy = torch.empty(UAV_NUMBER, batch_size, hidden_size_lstm)
+    lstm_cell_states_policy = torch.empty(UAV_NUMBER, batch_size, hidden_size_lstm)
     for i in range(UAV_NUMBER):
-        token_hidden_states[i] = torch.zeros(num_layer_lstm, batch_size, hidden_size_lstm)
-        cell_states[i] = cell_state = torch.zeros(num_layer_lstm, batch_size, hidden_size_lstm)
+        lstm_hidden_states_policy[i] = torch.zeros(num_layer_lstm, batch_size, hidden_size_lstm)
+        lstm_cell_states_policy[i] = cell_state = torch.zeros(num_layer_lstm, batch_size, hidden_size_lstm)
 
+    lstm_hidden_states_target = lstm_hidden_states_policy
+    lstm_cell_states_target = lstm_cell_states_policy
 
-    # COMMENT FOR INITIAL TRAINING
-    # PATH = '../neural_network/Base.pth'
-    # transformer_encoder_decoder_net.load_state_dict(torch.load(PATH))
-    # lstm_net.load_state_dict(torch.load(PATH))
+    optimizer_transformer = optim.Adam(transformer_policy.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
+    optimizer_lstm = optim.Adam(lstm_policy.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
+    optimizer_deep_Q = optim.Adam(deep_Q_net_policy.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
 
-    # optimizer = optim.Adam(lstm_net.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
-    # replay_buffer = ReplayMemory(6000)
+    replay_buffer = ReplayMemory(6000)
 
     def normalize(state: np.ndarray) -> np.ndarray:
         nornmalized_state = np.ndarray(shape=state.shape, dtype=np.float64)
@@ -102,18 +105,19 @@ if TRAIN:
         global UAV_NUMBER
         time_steps_done += 1
         for i in range(UAV_NUMBER):
-            sample = 1.0 # random.random() TODO scommentare per usare eps-greedy
+            sample = random.random()
             eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1.0 * time_steps_done / EPS_DECAY)
             if sample > eps_threshold:
-                with torch.no_grad():
-                    # return mean and covariance according to LSTM [μx, μy, σx, σy]
-                    output, (hs, cs) = lstm_net(tokens[i], 1, token_hidden_states[i].unsqueeze(0), cell_states[i].unsqueeze(0))
-                    token_hidden_states[i] = hs
-                    cell_states[i] = cs
-                    output = output.numpy().reshape(4)
-                    action.append(output)
+                # return action according to LSTM [μx, μy]
+                output, (hs, cs) = lstm_policy(tokens[i], 1, lstm_hidden_states_policy[i].unsqueeze(0), lstm_cell_states_policy[i].unsqueeze(0))
+                lstm_hidden_states_policy[i] = hs
+                lstm_cell_states_policy[i] = cs
+                output = output.cpu().numpy().reshape(2)
+                numpy.clip(output + np.random.normal(0, 1), (-1) * MAX_SPEED_UAV, MAX_SPEED_UAV)
+                action.append(output)
             else:
-                torch.tensor([[env.action_space.sample()]], device=device, dtype=torch.long)  # TODO
+                output = env.action_space.sample()[0]
+                action.append(output)
         return action
 
 
@@ -157,7 +161,7 @@ if TRAIN:
     #     optimizer.step()
 
     if torch.cuda.is_available():
-        num_episodes = 11
+        num_episodes = 100
     else:
         num_episodes = 10
 
@@ -169,38 +173,31 @@ if TRAIN:
     for i_episode in range(0, num_episodes, 1):
         print("Episode: ", i_episode)
         state, info = env.reset(seed=int(time.perf_counter()))
-        state = normalize(state)
-        uav_positions, connected_gu_positions = np.split(state, [UAV_NUMBER], axis=0)
-        uav_positions = torch.from_numpy(uav_positions).float()
-        connected_gu_positions = torch.from_numpy(connected_gu_positions).float()
-        # state = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
+        state = normalize(state)  # Normalize in [0,1]
         steps = 0
         while True:
-            tokens = transformer_encoder_decoder_net(connected_gu_positions, uav_positions)
-            # TODO inserire transformer e LSTM
-            actions = select_actions_epsilon(tokens)  # TODO capire come fatta azione
+            uav_positions, connected_gu_positions = np.split(state, [UAV_NUMBER], axis=0)
+            uav_positions = torch.from_numpy(uav_positions).float().to(device)
+            connected_gu_positions = torch.from_numpy(connected_gu_positions).float().to(device)
+            tokens = transformer_policy(connected_gu_positions, uav_positions)
+
+            actions = select_actions_epsilon(tokens)
+
             next_state, reward, terminated, truncated, _ = env.step(actions)
-            next_state = normalize(next_state)  # Normalize in [0,1]
+
             if steps >= 120:
-                if not terminated:
-                    truncated = True
-            reward = torch.tensor([reward], device=device)
+                truncated = True
             done = terminated or truncated
 
-            if terminated or truncated:
-                next_state = None
-            else:
-                next_state = torch.tensor(next_state, dtype=torch.float32, device=device).unsqueeze(0)
-
-            # Store the transition in memory
-            # replay_buffer.push(state, actions, next_state, reward)
-
-            # Move to the next state
-            state = next_state
-
-            # Perform one step of the optimization
-            # optimize_model()
-            steps += 1
+            if not terminated and not truncated:
+                # Store the transition in memory
+                next_state = normalize(next_state)
+                replay_buffer.push(state, actions, next_state, reward)  # TODO che stato salvare, token o osservazione?
+                # Move to the next state
+                state = next_state
+                # Perform one step of the optimization
+                # optimize_model() // TODO
+                steps += 1
 
             if done:
                 break

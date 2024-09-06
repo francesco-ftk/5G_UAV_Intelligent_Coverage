@@ -8,23 +8,6 @@ EPS_START = 0.9  # the starting value of epsilon
 EPS_END = 0.3  # the final value of epsilon
 EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
 
-def select_actions_epsilon(tokens, UAV_number, time_steps_done):
-    action = []
-    for i in range(UAV_number):
-        sample = random.random()
-        eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1.0 * time_steps_done / EPS_DECAY)
-        if sample > eps_threshold:
-            with torch.no_grad():
-                # return mean and covariance according to LSTM [μx, μy, σx, σy]
-                output, (hs, cs) = lstm_net(tokens[i], 1, token_hidden_states[i].unsqueeze(0), cell_states[i].unsqueeze(0))
-                token_hidden_states[i] = hs
-                cell_states[i] = cs
-                output = output.numpy().reshape(4)
-                action.append(output)
-        else:
-            torch.tensor([[env.action_space.sample()]], device=device, dtype=torch.long)  # TODO
-    return action
-
 
 class PolicyNet(nn.Module):
 

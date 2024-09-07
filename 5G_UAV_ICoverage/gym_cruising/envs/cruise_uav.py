@@ -84,7 +84,8 @@ class CruiseUAV(Cruise):
     def move_UAV(self, actions):
         for i, uav in enumerate(self.uav):
             previous_position = uav.position
-            new_position = Point(previous_position.x_coordinate + actions[i][0], previous_position.y_coordinate + actions[i][1])
+            new_position = Point(previous_position.x_coordinate + actions[i][0],
+                                 previous_position.y_coordinate + actions[i][1])
             uav.position = new_position
             uav.previous_position = previous_position
 
@@ -210,8 +211,12 @@ class CruiseUAV(Cruise):
         return False
 
     def calculate_reward(self) -> float:
-        reward = 0.0
-        return reward
+        # calculate Region Cpverage Ratio
+        RCR = 0
+        for gu in self.gu:
+            if gu.covered:
+                RCR += 1
+        return RCR / len(self.gu)
 
     def init_environment(self, options: Optional[dict] = None) -> None:
         self.init_uav()

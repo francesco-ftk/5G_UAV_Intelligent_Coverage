@@ -24,9 +24,12 @@ EPS_END = 0.3  # the final value of epsilon
 EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
 BATCH_SIZE = 128  # is the number of transitions random sampled from the replay buffer
 LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
+BETA = 0.005  # is the update rate of the target network
+GAMMA = 0.99  # Discount Factor
 
 MAX_POSITION = 4000.0
 MIN_POSITION = 0.0
+MAX_SPEED_UAV = 5.86  # m/s
 
 time_steps_done = -1
 input_size_lstm = 16
@@ -35,8 +38,6 @@ output_size_lstm = 2  # [μx, μy]
 seq_len_lstm = 1
 num_layer_lstm = 1
 batch_size = 1
-
-MAX_SPEED_UAV = 5.86  # m/s
 
 # if gpu is to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -65,7 +66,7 @@ if TRAIN:
     # deep_Q_net_policy.load_state_dict(torch.load(PATH_DEEP_Q))
 
     # ACTOR POLICY NET target
-    transformer_target = TransformerEncoderDecoder().to(device)
+    transformer_target = TransformerEncoderDecoder().to(device)  # TODO domanda 1
     lstm_target = LSTM(input_size_lstm, hidden_size_lstm, output_size_lstm, seq_len_lstm, num_layer_lstm).to(device)
 
     # CRITIC Q NET target
@@ -89,7 +90,7 @@ if TRAIN:
     optimizer_lstm = optim.Adam(lstm_policy.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
     optimizer_deep_Q = optim.Adam(deep_Q_net_policy.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
 
-    replay_buffer = ReplayMemory(6000)
+    replay_buffer = ReplayMemory(60000)
 
     def normalize(state: np.ndarray) -> np.ndarray:
         nornmalized_state = np.ndarray(shape=state.shape, dtype=np.float64)
@@ -112,57 +113,61 @@ if TRAIN:
                 lstm_hidden_states_policy[i] = hs
                 lstm_cell_states_policy[i] = cs
                 output = output.cpu().numpy().reshape(2)
-                numpy.clip(output + np.random.normal(0, 1), (-1) * MAX_SPEED_UAV, MAX_SPEED_UAV)
+                numpy.clip(output + np.random.normal(0, 1), (-1) * MAX_SPEED_UAV, MAX_SPEED_UAV)  # TODO domanda 2
                 action.append(output)
             else:
                 output = env.action_space.sample()[0]
                 action.append(output)
         return action
 
+    def optimize_model():
 
-    # def optimize_model():
-    #     if len(replay_buffer) < BATCH_SIZE:
-    #         return
-    #     transitions = replay_buffer.sample(BATCH_SIZE)
-    #
-    #     # This converts batch-arrays of Transitions to Transition of batch-arrays.
-    #     batch = Transition(*zip(*transitions))
-    #
-    #     # map() function returns a map object of the results after applying the given function to each item of a given iterable
-    #     non_final_states_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)), device=device,
-    #                                          dtype=torch.bool)
-    #     non_final_next_states = torch.cat(
-    #         [s for s in batch.next_state if s is not None])
-    #     state_batch = torch.cat(batch.state)
-    #     action_batch = torch.cat(batch.action)
-    #     reward_batch = torch.cat(batch.reward)
-    #
-    #     # policy_net computes Q(state, action taken)
-    #     state_action_values = policy_net(state_batch).gather(1, action_batch)
-    #
-    #     # This is merged based on the mask, such that we'll have either the expected
-    #     # state value or 0 in case the state was final.
-    #     # target_net computes max over actions of Q(next_state, action) for all next states
-    #     next_state_values = torch.zeros(BATCH_SIZE, device=device)
-    #     with torch.no_grad():
-    #         next_state_values[non_final_states_mask] = target_net(non_final_next_states).max(1)[0]
-    #     # Compute the expected Q values with BELLMAN OPTIMALITY Q VALUE EQUATION:
-    #     # Q(state,action) = reward(state,action) + GAMMA * max(Q(next_state, actions), action)
-    #     expected_state_action_values = (next_state_values * GAMMA) + reward_batch
-    #
-    #     criterion = nn.SmoothL1Loss()
-    #     loss = criterion(state_action_values, expected_state_action_values.unsqueeze(1))
-    #
-    #     # Optimize the model
-    #     optimizer.zero_grad()
-    #     loss.backward()
-    #     torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
-    #     optimizer.step()
+        global UAV_NUMBER
+
+        if len(replay_buffer) < BATCH_SIZE:
+            return
+        transitions = replay_buffer.sample(BATCH_SIZE)
+
+        # This converts batch-arrays of Transitions to Transition of batch-arrays.
+        batch = Transition(*zip(*transitions))
+
+        # map() function returns a map object of the results after applying the given function to each item of a given iterable
+        # non_final_states_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)), device=device,
+        #                                      dtype=torch.bool)
+
+        next_states_batch = torch.cat(batch.next_states)
+        states_batch = torch.cat(batch.states)
+        actions_batch = torch.cat(batch.actions)
+        rewards_batch = torch.cat(batch.rewards)
+
+        for i in range(UAV_NUMBER):
+
+        # policy_net computes Q(state, action taken)
+        state_action_values = policy_net(state_batch).gather(1, action_batch)
+
+        # This is merged based on the mask, such that we'll have either the expected
+        # state value or 0 in case the state was final.
+        # target_net computes max over actions of Q(next_state, action) for all next states
+        # next_state_values = torch.zeros(BATCH_SIZE, device=device)
+        # with torch.no_grad():
+        #     next_state_values[non_final_states_mask] = target_net(non_final_next_states).max(1)[0]
+        # Compute the expected Q values with BELLMAN OPTIMALITY Q VALUE EQUATION:
+        # Q(state,action) = reward(state,action) + GAMMA * max(Q(next_state, actions), action)
+        expected_state_action_values = (next_state_values * GAMMA) + reward_batch
+
+        criterion = nn.SmoothL1Loss()
+        loss = criterion(state_action_values, expected_state_action_values.unsqueeze(1))
+
+        # Optimize the model
+        optimizer.zero_grad()
+        loss.backward()
+        torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
+        optimizer.step()
 
     if torch.cuda.is_available():
-        num_episodes = 100
+        num_episodes = 2001
     else:
-        num_episodes = 10
+        num_episodes = 101
 
     # Writer will output to ./runs/ directory by default
     # writer = SummaryWriter("runs")
@@ -172,8 +177,8 @@ if TRAIN:
     for i_episode in range(0, num_episodes, 1):
         print("Episode: ", i_episode)
         state, info = env.reset(seed=int(time.perf_counter()))
-        state = normalize(state)  # Normalize in [0,1]
-        steps = 0
+        state = normalize(state)  # Normalize in [0,1]  # TODO domanda 3
+        steps = 1
         while True:
             uav_positions, connected_gu_positions = np.split(state, [UAV_NUMBER], axis=0)
             uav_positions = torch.from_numpy(uav_positions).float().to(device)
@@ -184,19 +189,40 @@ if TRAIN:
 
             next_state, reward, terminated, truncated, _ = env.step(actions)
 
-            if steps >= 120:
+            if steps > 300:
                 truncated = True
             done = terminated or truncated
 
-            if not terminated and not truncated:
+            if not terminated and not truncated:  # TODO rimuovo esempi dove agenti escono dall'environment
                 # Store the transition in memory
                 next_state = normalize(next_state)
-                replay_buffer.push(state, actions, next_state, reward)  # TODO che stato salvare, token o osservazione?
+                replay_buffer.push(state, actions, next_state, reward)  # TODO domanda 4, che stato salvare, tokens, osservazione, cell e hidden states?
                 # Move to the next state
                 state = next_state
                 # Perform one step of the optimization
-                # optimize_model() // TODO
+                optimize_model()
                 steps += 1
+
+            if steps % 100 == 0:
+                # Soft update of the target network's weights
+                # Q′ ← β * Q + (1 − β) * Q′
+                target_net_state_dict = transformer_target.state_dict()
+                policy_net_state_dict = transformer_policy.state_dict()
+                for key in policy_net_state_dict:
+                    target_net_state_dict[key] = policy_net_state_dict[key] * BETA + target_net_state_dict[key] * (1 - BETA)
+                transformer_target.load_state_dict(target_net_state_dict)
+
+                target_net_state_dict = lstm_target.state_dict()
+                policy_net_state_dict = lstm_policy.state_dict()
+                for key in policy_net_state_dict:
+                    target_net_state_dict[key] = policy_net_state_dict[key] * BETA + target_net_state_dict[key] * (1 - BETA)
+                lstm_target.load_state_dict(target_net_state_dict)
+
+                target_net_state_dict = deep_Q_net_target.state_dict()
+                policy_net_state_dict = deep_Q_net_policy.state_dict()
+                for key in policy_net_state_dict:
+                    target_net_state_dict[key] = policy_net_state_dict[key] * BETA + target_net_state_dict[key] * (1 - BETA)
+                deep_Q_net_target.load_state_dict(target_net_state_dict)
 
             if done:
                 break
@@ -218,11 +244,15 @@ if TRAIN:
         #             writer.add_scalars('Reward', {'policy_net': reward}, i_episode)
         #             break
 
-    # PATH = '../neural_network/last.pth'
-    # torch.save(lstm_net.state_dict(), PATH)
+    # save the policy nets
+    torch.save(transformer_policy.state_dict(), '../neural_network/last_transformer.pth')
+    torch.save(lstm_policy.state_dict(), '../neural_network/last_lstm.pth')
+    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/last_deep_q_net.pth')
+
     # writer.close()
     env.close()
     print('TRAINING COMPLETE')
+
 else:
 
     env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=2)

@@ -92,6 +92,7 @@ if TRAIN:
 
     replay_buffer = ReplayMemory(60000)
 
+
     def normalize(state: np.ndarray) -> np.ndarray:
         nornmalized_state = np.ndarray(shape=state.shape, dtype=np.float64)
         for i in range(len(state)):
@@ -109,7 +110,8 @@ if TRAIN:
             eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1.0 * time_steps_done / EPS_DECAY)
             if sample > eps_threshold:
                 # return action according to LSTM [μx, μy]
-                output, (hs, cs) = lstm_policy(tokens[i], 1, lstm_hidden_states_policy[i].unsqueeze(0), lstm_cell_states_policy[i].unsqueeze(0))
+                output, (hs, cs) = lstm_policy(tokens[i], 1, lstm_hidden_states_policy[i].unsqueeze(0),
+                                               lstm_cell_states_policy[i].unsqueeze(0))
                 lstm_hidden_states_policy[i] = hs
                 lstm_cell_states_policy[i] = cs
                 output = output.cpu().numpy().reshape(2)
@@ -119,6 +121,7 @@ if TRAIN:
                 output = env.action_space.sample()[0]
                 action.append(output)
         return action
+
 
     def optimize_model():
 
@@ -131,38 +134,32 @@ if TRAIN:
         # This converts batch-arrays of Transitions to Transition of batch-arrays.
         batch = Transition(*zip(*transitions))
 
-        # map() function returns a map object of the results after applying the given function to each item of a given iterable
-        # non_final_states_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)), device=device,
-        #                                      dtype=torch.bool)
-
         next_states_batch = torch.cat(batch.next_states)
         states_batch = torch.cat(batch.states)
         actions_batch = torch.cat(batch.actions)
         rewards_batch = torch.cat(batch.rewards)
 
-        for i in range(UAV_NUMBER):
+        for i in range(UAV_NUMBER):  # TODO domanda 5, 6, 7
+            # prendo nuovo stato, genero tokens con target transformer, genero azione con target lstm e uso questi per calcolare y
+            target_q_values = rewards_batch[:, i].unsqueeze(1) + GAMMA * deep_Q_net_target(next_states_batch[:, i], actions_batch[:, i])  # TODO
+            q_values = deep_Q_net_policy(states_batch[:, i], actions_batch[:, i])
+            criterion = nn.SmoothL1Loss()  # nn.MSELoss()
+            critic_loss = criterion(q_values, target_q_values)
+            # Optimize the model
+            optimizer_deep_Q.zero_grad()
+            critic_loss.backward()
+            torch.nn.utils.clip_grad_value_(deep_Q_net_policy.parameters(), 100)
+            optimizer_deep_Q.step()
 
-        # policy_net computes Q(state, action taken)
-        state_action_values = policy_net(state_batch).gather(1, action_batch)
+            actor_loss = -deep_Q_net_policy(states_batch[:, i], actions_batch[:, i]).mean()  # negativo per massimizzare Q
+            optimizer_transformer.zero_grad()
+            optimizer_lstm.zero_grad()
+            actor_loss.backward()
+            torch.nn.utils.clip_grad_value_(transformer_policy.parameters(), 100)
+            torch.nn.utils.clip_grad_value_(lstm_policy.parameters(), 100)
+            optimizer_transformer.step()
+            optimizer_lstm.step()
 
-        # This is merged based on the mask, such that we'll have either the expected
-        # state value or 0 in case the state was final.
-        # target_net computes max over actions of Q(next_state, action) for all next states
-        # next_state_values = torch.zeros(BATCH_SIZE, device=device)
-        # with torch.no_grad():
-        #     next_state_values[non_final_states_mask] = target_net(non_final_next_states).max(1)[0]
-        # Compute the expected Q values with BELLMAN OPTIMALITY Q VALUE EQUATION:
-        # Q(state,action) = reward(state,action) + GAMMA * max(Q(next_state, actions), action)
-        expected_state_action_values = (next_state_values * GAMMA) + reward_batch
-
-        criterion = nn.SmoothL1Loss()
-        loss = criterion(state_action_values, expected_state_action_values.unsqueeze(1))
-
-        # Optimize the model
-        optimizer.zero_grad()
-        loss.backward()
-        torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
-        optimizer.step()
 
     if torch.cuda.is_available():
         num_episodes = 2001
@@ -196,7 +193,8 @@ if TRAIN:
             if not terminated and not truncated:  # TODO rimuovo esempi dove agenti escono dall'environment
                 # Store the transition in memory
                 next_state = normalize(next_state)
-                replay_buffer.push(state, actions, next_state, reward)  # TODO domanda 4, che stato salvare, tokens, osservazione, cell e hidden states?
+                replay_buffer.push(state, actions, next_state,
+                                   reward)  # TODO domanda 4, che stato salvare, tokens, osservazione, cell e hidden states?
                 # Move to the next state
                 state = next_state
                 # Perform one step of the optimization
@@ -209,19 +207,22 @@ if TRAIN:
                 target_net_state_dict = transformer_target.state_dict()
                 policy_net_state_dict = transformer_policy.state_dict()
                 for key in policy_net_state_dict:
-                    target_net_state_dict[key] = policy_net_state_dict[key] * BETA + target_net_state_dict[key] * (1 - BETA)
+                    target_net_state_dict[key] = policy_net_state_dict[key] * BETA + target_net_state_dict[key] * (
+                                1 - BETA)
                 transformer_target.load_state_dict(target_net_state_dict)
 
                 target_net_state_dict = lstm_target.state_dict()
                 policy_net_state_dict = lstm_policy.state_dict()
                 for key in policy_net_state_dict:
-                    target_net_state_dict[key] = policy_net_state_dict[key] * BETA + target_net_state_dict[key] * (1 - BETA)
+                    target_net_state_dict[key] = policy_net_state_dict[key] * BETA + target_net_state_dict[key] * (
+                                1 - BETA)
                 lstm_target.load_state_dict(target_net_state_dict)
 
                 target_net_state_dict = deep_Q_net_target.state_dict()
                 policy_net_state_dict = deep_Q_net_policy.state_dict()
                 for key in policy_net_state_dict:
-                    target_net_state_dict[key] = policy_net_state_dict[key] * BETA + target_net_state_dict[key] * (1 - BETA)
+                    target_net_state_dict[key] = policy_net_state_dict[key] * BETA + target_net_state_dict[key] * (
+                                1 - BETA)
                 deep_Q_net_target.load_state_dict(target_net_state_dict)
 
             if done:

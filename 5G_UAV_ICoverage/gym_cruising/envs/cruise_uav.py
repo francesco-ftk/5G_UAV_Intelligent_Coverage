@@ -57,10 +57,12 @@ class CruiseUAV(Cruise):
                                      shape=(self.UAV_NUMBER + self.gu_connected, 2),
                                      dtype=np.float64)
 
-        self.action_space = Box(low=(-1) * self.MAX_SPEED_UAV,
-                                high=self.MAX_SPEED_UAV,
-                                shape=(self.UAV_NUMBER, 2),
-                                dtype=np.float64)
+        self.action_space = spaces.Discrete(1)
+
+        # self.action_space = Box(low=(-1) * self.MAX_SPEED_UAV,
+        #                         high=self.MAX_SPEED_UAV,
+        #                         shape=(self.UAV_NUMBER, 2),
+        #                         dtype=np.float64)
 
     def reset(self, seed=None, options=None) -> Tuple[np.ndarray, dict]:
         self.uav = []
@@ -70,7 +72,7 @@ class CruiseUAV(Cruise):
         return super().reset(seed=seed, options=options)
 
     def perform_action(self, actions) -> None:
-        self.move_UAV(actions)
+        # self.move_UAV(actions)
         self.update_GU()
         self.calculate_PathLoss_with_Markov_Chain()
         self.calculate_SINR()

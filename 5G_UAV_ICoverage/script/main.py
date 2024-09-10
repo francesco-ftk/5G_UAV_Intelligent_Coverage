@@ -18,11 +18,11 @@ from gym_cruising.neural_network.transformer_encoder_decoder import TransformerE
 UAV_NUMBER = 3
 GU_NUMBER = 60
 
-TRAIN = True
+TRAIN = False
 EPS_START = 0.9  # the starting value of epsilon
 EPS_END = 0.3  # the final value of epsilon
 EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
-BATCH_SIZE = 128  # is the number of transitions random sampled from the replay buffer
+BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
 LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
 BETA = 0.005  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
@@ -115,7 +115,7 @@ if TRAIN:
                 lstm_hidden_states_policy[i] = hs
                 lstm_cell_states_policy[i] = cs
                 output = output.cpu().numpy().reshape(2)
-                numpy.clip(output + np.random.normal(0, 1), (-1) * MAX_SPEED_UAV, MAX_SPEED_UAV)  # TODO domanda 2
+                output = output * MAX_SPEED_UAV + np.random.normal(0, 1)   # TODO domanda 2
                 action.append(output)
             else:
                 output = env.action_space.sample()[0]

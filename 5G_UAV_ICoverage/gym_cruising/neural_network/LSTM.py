@@ -16,4 +16,4 @@ class LSTM(nn.Module):
         hidden = (hidden_state, cell_state)
         current_state = current_state.reshape([self.seq_len, batch_size, self.input_size])
         y, hidden = self.lstm(current_state, hidden)
-        return self.fl1(hidden[0]), hidden
+        return torch.nn.functional.tanh(self.fl1(hidden[0])), hidden

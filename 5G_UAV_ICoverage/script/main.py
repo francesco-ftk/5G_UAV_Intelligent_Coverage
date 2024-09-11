@@ -28,7 +28,6 @@ BETA = 0.005  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
 
 MAX_POSITION = 4000.0
-MIN_POSITION = 0.0
 MAX_SPEED_UAV = 5.86  # m/s
 
 time_steps_done = -1
@@ -66,7 +65,7 @@ if TRAIN:
     # deep_Q_net_policy.load_state_dict(torch.load(PATH_DEEP_Q))
 
     # ACTOR POLICY NET target
-    transformer_target = TransformerEncoderDecoder().to(device)  # TODO domanda 1
+    transformer_target = TransformerEncoderDecoder().to(device)
     lstm_target = LSTM(input_size_lstm, hidden_size_lstm, output_size_lstm, seq_len_lstm, num_layer_lstm).to(device)
 
     # CRITIC Q NET target
@@ -95,8 +94,12 @@ if TRAIN:
 
     def normalize(state: np.ndarray) -> np.ndarray:
         nornmalized_state = np.ndarray(shape=state.shape, dtype=np.float64)
+        threshold = len(state) - UAV_NUMBER
         for i in range(len(state)):
-            nornmalized_state[i] = (state[i] - MIN_POSITION) / (MAX_POSITION - MIN_POSITION)
+            if i < threshold:
+                nornmalized_state[i] = (state[i] / MAX_POSITION) * 2 - 1
+            else:
+                nornmalized_state[i] = ((state[i] + MAX_SPEED_UAV) / (2 * MAX_SPEED_UAV)) * 2 - 1
         return nornmalized_state
 
 
@@ -115,7 +118,7 @@ if TRAIN:
                 lstm_hidden_states_policy[i] = hs
                 lstm_cell_states_policy[i] = cs
                 output = output.cpu().numpy().reshape(2)
-                output = output * MAX_SPEED_UAV + np.random.normal(0, 1)   # TODO domanda 2
+                output = output * MAX_SPEED_UAV + np.random.normal(0, 1)  # TODO domanda 2
                 action.append(output)
             else:
                 output = env.action_space.sample()[0]
@@ -141,7 +144,8 @@ if TRAIN:
 
         for i in range(UAV_NUMBER):  # TODO domanda 5, 6, 7
             # prendo nuovo stato, genero tokens con target transformer, genero azione con target lstm e uso questi per calcolare y
-            target_q_values = rewards_batch[:, i].unsqueeze(1) + GAMMA * deep_Q_net_target(next_states_batch[:, i], actions_batch[:, i])  # TODO
+            target_q_values = rewards_batch[:, i].unsqueeze(1) + GAMMA * deep_Q_net_target(next_states_batch[:, i],
+                                                                                           actions_batch[:, i])  # TODO
             q_values = deep_Q_net_policy(states_batch[:, i], actions_batch[:, i])
             criterion = nn.SmoothL1Loss()  # nn.MSELoss()
             critic_loss = criterion(q_values, target_q_values)
@@ -151,7 +155,8 @@ if TRAIN:
             torch.nn.utils.clip_grad_value_(deep_Q_net_policy.parameters(), 100)
             optimizer_deep_Q.step()
 
-            actor_loss = -deep_Q_net_policy(states_batch[:, i], actions_batch[:, i]).mean()  # negativo per massimizzare Q
+            actor_loss = -deep_Q_net_policy(states_batch[:, i],
+                                            actions_batch[:, i]).mean()  # negativo per massimizzare Q
             optimizer_transformer.zero_grad()
             optimizer_lstm.zero_grad()
             actor_loss.backward()
@@ -174,10 +179,14 @@ if TRAIN:
     for i_episode in range(0, num_episodes, 1):
         print("Episode: ", i_episode)
         state, info = env.reset(seed=int(time.perf_counter()))
-        state = normalize(state)  # Normalize in [0,1]  # TODO domanda 3
+        state = normalize(state)  # Normalize in [-1,1]
         steps = 1
         while True:
-            uav_positions, connected_gu_positions = np.split(state, [UAV_NUMBER], axis=0)
+            uav_positions, connected_gu_positions_plus_last_shift_uav = np.split(state, [UAV_NUMBER], axis=0)
+            connected_gu_positions, last_shift_uav = np.split(connected_gu_positions_plus_last_shift_uav, [
+                len(connected_gu_positions_plus_last_shift_uav) - UAV_NUMBER], axis=0)
+            uav_info = np.concatenate([uav_positions,
+                                       last_shift_uav])  # TODO spostare normalizzazione in modello che ritorna osservazione per avere x y dx dy vicini!
             uav_positions = torch.from_numpy(uav_positions).float().to(device)
             connected_gu_positions = torch.from_numpy(connected_gu_positions).float().to(device)
             tokens = transformer_policy(connected_gu_positions, uav_positions)
@@ -193,8 +202,7 @@ if TRAIN:
             if not terminated and not truncated:  # TODO rimuovo esempi dove agenti escono dall'environment
                 # Store the transition in memory
                 next_state = normalize(next_state)
-                replay_buffer.push(state, actions, next_state,
-                                   reward)  # TODO domanda 4, che stato salvare, tokens, osservazione, cell e hidden states?
+                replay_buffer.push(state, actions, next_state, reward)
                 # Move to the next state
                 state = next_state
                 # Perform one step of the optimization
@@ -208,21 +216,21 @@ if TRAIN:
                 policy_net_state_dict = transformer_policy.state_dict()
                 for key in policy_net_state_dict:
                     target_net_state_dict[key] = policy_net_state_dict[key] * BETA + target_net_state_dict[key] * (
-                                1 - BETA)
+                            1 - BETA)
                 transformer_target.load_state_dict(target_net_state_dict)
 
                 target_net_state_dict = lstm_target.state_dict()
                 policy_net_state_dict = lstm_policy.state_dict()
                 for key in policy_net_state_dict:
                     target_net_state_dict[key] = policy_net_state_dict[key] * BETA + target_net_state_dict[key] * (
-                                1 - BETA)
+                            1 - BETA)
                 lstm_target.load_state_dict(target_net_state_dict)
 
                 target_net_state_dict = deep_Q_net_target.state_dict()
                 policy_net_state_dict = deep_Q_net_policy.state_dict()
                 for key in policy_net_state_dict:
                     target_net_state_dict[key] = policy_net_state_dict[key] * BETA + target_net_state_dict[key] * (
-                                1 - BETA)
+                            1 - BETA)
                 deep_Q_net_target.load_state_dict(target_net_state_dict)
 
             if done:

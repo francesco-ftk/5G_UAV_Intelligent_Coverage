@@ -54,7 +54,7 @@ class CruiseUAV(Cruise):
 
         self.observation_space = Box(low=self.low_observation,
                                      high=self.high_observation,
-                                     shape=(self.UAV_NUMBER + self.gu_connected, 2),
+                                     shape=((self.UAV_NUMBER * 2) + self.gu_connected, 2),
                                      dtype=np.float64)
 
         self.action_space = spaces.Discrete(1)
@@ -90,6 +90,8 @@ class CruiseUAV(Cruise):
                                  previous_position.y_coordinate + actions[i][1])
             uav.position = new_position
             uav.previous_position = previous_position
+            uav.last_shift_x = actions[i][0]
+            uav.last_shift_y = actions[i][1]
 
     # Random walk the GU
     def move_GU(self):
@@ -189,7 +191,7 @@ class CruiseUAV(Cruise):
     def get_observation(self) -> np.ndarray:
         self.observation_space = Box(low=self.low_observation,
                                      high=self.high_observation,
-                                     shape=(self.UAV_NUMBER + self.gu_connected, 2),
+                                     shape=((self.UAV_NUMBER * 2) + self.gu_connected, 2),
                                      dtype=np.float64)
         observation = np.array([[self.uav[0].position.x_coordinate, self.uav[0].position.y_coordinate]])
         for i in range(1, self.UAV_NUMBER):
@@ -200,6 +202,10 @@ class CruiseUAV(Cruise):
             if gu.connected:
                 observation = np.append(observation, np.array([[gu.position.x_coordinate, gu.position.y_coordinate]]),
                                         axis=0)
+        for uav in self.uav:
+            observation = np.append(observation,
+                                    np.array([[uav.last_shift_x, uav.last_shift_y]]),
+                                    axis=0)
         return observation
 
     def check_if_terminated(self) -> bool:

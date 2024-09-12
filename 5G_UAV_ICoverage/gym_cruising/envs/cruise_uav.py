@@ -16,6 +16,21 @@ from gym_cruising.envs.cruise import Cruise
 from gym_cruising.geometry.point import Point
 from gym_cruising.utils import channels_utils
 
+MAX_SPEED_UAV = 5.86  # m/s
+MAX_POSITION = 4000.0
+
+
+def normalizePositions(positions: np.ndarray) -> np.ndarray:  # Normalize in [-1,1]
+    nornmalized_positions = np.ndarray(shape=positions.shape, dtype=np.float64)
+    nornmalized_positions = (positions / MAX_POSITION) * 2 - 1
+    return nornmalized_positions
+
+
+def normalizeActions(actions: np.ndarray) -> np.ndarray:  # Normalize in [-1,1]
+    nornmalized_actions = np.ndarray(shape=actions.shape, dtype=np.float64)
+    nornmalized_actions = ((actions + MAX_SPEED_UAV) / (2 * MAX_SPEED_UAV)) * 2 - 1
+    return nornmalized_actions
+
 
 class CruiseUAV(Cruise):
     uav = []
@@ -40,8 +55,6 @@ class CruiseUAV(Cruise):
     low_observation: float
     high_observation: float
 
-    MAX_SPEED_UAV = 5.86  # m/s
-
     gu_connected = 0
 
     def __init__(self,
@@ -57,7 +70,7 @@ class CruiseUAV(Cruise):
                                      shape=((self.UAV_NUMBER * 2) + self.gu_connected, 2),
                                      dtype=np.float64)
 
-        self.action_space = spaces.Discrete(1)
+        self.action_space = spaces.Discrete(1)  # TODO rimuovere e aprire sotto
 
         # self.action_space = Box(low=(-1) * self.MAX_SPEED_UAV,
         #                         high=self.MAX_SPEED_UAV,
@@ -72,7 +85,7 @@ class CruiseUAV(Cruise):
         return super().reset(seed=seed, options=options)
 
     def perform_action(self, actions) -> None:
-        # self.move_UAV(actions)
+        # self.move_UAV(actions) TODO aprire
         self.update_GU()
         self.calculate_PathLoss_with_Markov_Chain()
         self.calculate_SINR()
@@ -193,19 +206,25 @@ class CruiseUAV(Cruise):
                                      high=self.high_observation,
                                      shape=((self.UAV_NUMBER * 2) + self.gu_connected, 2),
                                      dtype=np.float64)
-        observation = np.array([[self.uav[0].position.x_coordinate, self.uav[0].position.y_coordinate]])
+        observation = np.array(
+            [normalizePositions([self.uav[0].position.x_coordinate, self.uav[0].position.y_coordinate])])
+        observation = np.append(observation,
+                                np.array([normalizeActions([self.uav[0].last_shift_x, self.uav[0].last_shift_y])]),
+                                axis=0)
         for i in range(1, self.UAV_NUMBER):
             observation = np.append(observation,
-                                    np.array([[self.uav[i].position.x_coordinate, self.uav[i].position.y_coordinate]]),
+                                    np.array([normalizePositions(
+                                        [self.uav[i].position.x_coordinate, self.uav[i].position.y_coordinate])]),
                                     axis=0)
+            observation = np.append(observation,
+                                    np.array([normalizeActions([self.uav[i].last_shift_x, self.uav[i].last_shift_y])]),
+                                    axis=0)
+
         for gu in self.gu:
             if gu.connected:
-                observation = np.append(observation, np.array([[gu.position.x_coordinate, gu.position.y_coordinate]]),
+                observation = np.append(observation, np.array(
+                    [normalizePositions([gu.position.x_coordinate, gu.position.y_coordinate])]),
                                         axis=0)
-        for uav in self.uav:
-            observation = np.append(observation,
-                                    np.array([[uav.last_shift_x, uav.last_shift_y]]),
-                                    axis=0)
         return observation
 
     def check_if_terminated(self) -> bool:

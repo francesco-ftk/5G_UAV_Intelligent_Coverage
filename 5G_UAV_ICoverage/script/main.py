@@ -12,11 +12,11 @@ import random
 
 from gym_cruising.memory.replay_memory import ReplayMemory, Transition
 from gym_cruising.neural_network.LSTM import LSTM
+from gym_cruising.neural_network.MLP_policy_net import MLPPolicyNet
 from gym_cruising.neural_network.deep_Q_net import DeepQNet
 from gym_cruising.neural_network.transformer_encoder_decoder import TransformerEncoderDecoder
 
 UAV_NUMBER = 3
-GU_NUMBER = 60
 
 TRAIN = False
 EPS_START = 0.9  # the starting value of epsilon
@@ -27,16 +27,11 @@ LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decre
 BETA = 0.005  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
 
-MAX_POSITION = 4000.0
 MAX_SPEED_UAV = 5.86  # m/s
 
 time_steps_done = -1
-input_size_lstm = 16
 hidden_size_lstm = 8
 output_size_lstm = 2  # [μx, μy]
-seq_len_lstm = 1
-num_layer_lstm = 1
-batch_size = 1
 
 # if gpu is to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -51,7 +46,7 @@ if TRAIN:
 
     # ACTOR POLICY NET policy
     transformer_policy = TransformerEncoderDecoder().to(device)
-    lstm_policy = LSTM(input_size_lstm, hidden_size_lstm, output_size_lstm, seq_len_lstm, num_layer_lstm).to(device)
+    mlp_policy = MLPPolicyNet().to(device)
 
     # CRITIC Q NET policy
     deep_Q_net_policy = DeepQNet(hidden_size_lstm + hidden_size_lstm, output_size_lstm).to(device)
@@ -59,67 +54,51 @@ if TRAIN:
     # COMMENT FOR INITIAL TRAINING
     # PATH_TRANSFORMER = '../neural_network/BaseTransformer.pth'
     # transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    # PATH_LSTM = '../neural_network/BaseLSTM.pth'
-    # lstm_policy.load_state_dict(torch.load(PATH_LSTM))
+    # PATH_MLP_POLICY = '../neural_network/BaseMLP.pth'
+    # mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
     # PATH_DEEP_Q = '../neural_network/BaseDeepQ.pth'
     # deep_Q_net_policy.load_state_dict(torch.load(PATH_DEEP_Q))
 
     # ACTOR POLICY NET target
     transformer_target = TransformerEncoderDecoder().to(device)
-    lstm_target = LSTM(input_size_lstm, hidden_size_lstm, output_size_lstm, seq_len_lstm, num_layer_lstm).to(device)
+    mlp_target = MLPPolicyNet().to(device)
 
     # CRITIC Q NET target
     deep_Q_net_target = DeepQNet(hidden_size_lstm + hidden_size_lstm, output_size_lstm).to(device)
 
     # set target parameters equal to main parameters
     transformer_target.load_state_dict(transformer_policy.state_dict())
-    lstm_target.load_state_dict(lstm_policy.state_dict())
+    mlp_target.load_state_dict(mlp_policy.state_dict())
     deep_Q_net_target.load_state_dict(deep_Q_net_policy.state_dict())
 
-    lstm_hidden_states_policy = torch.empty(UAV_NUMBER, batch_size, hidden_size_lstm)
-    lstm_cell_states_policy = torch.empty(UAV_NUMBER, batch_size, hidden_size_lstm)
-    for i in range(UAV_NUMBER):
-        lstm_hidden_states_policy[i] = torch.zeros(num_layer_lstm, batch_size, hidden_size_lstm)
-        lstm_cell_states_policy[i] = cell_state = torch.zeros(num_layer_lstm, batch_size, hidden_size_lstm)
-
-    lstm_hidden_states_target = lstm_hidden_states_policy
-    lstm_cell_states_target = lstm_cell_states_policy
-
     optimizer_transformer = optim.Adam(transformer_policy.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
-    optimizer_lstm = optim.Adam(lstm_policy.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
+    optimizer_mlp = optim.Adam(mlp_policy.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
     optimizer_deep_Q = optim.Adam(deep_Q_net_policy.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
 
     replay_buffer = ReplayMemory(60000)
 
 
-    def normalize(state: np.ndarray) -> np.ndarray:
-        nornmalized_state = np.ndarray(shape=state.shape, dtype=np.float64)
-        threshold = len(state) - UAV_NUMBER
-        for i in range(len(state)):
-            if i < threshold:
-                nornmalized_state[i] = (state[i] / MAX_POSITION) * 2 - 1
-            else:
-                nornmalized_state[i] = ((state[i] + MAX_SPEED_UAV) / (2 * MAX_SPEED_UAV)) * 2 - 1
-        return nornmalized_state
-
-
-    def select_actions_epsilon(tokens):
-        action = []
+    def select_actions_epsilon(state):
         global time_steps_done
         global UAV_NUMBER
+        uav_info, connected_gu_positions = np.split(state, [UAV_NUMBER * 2], axis=0)
+        uav_info = uav_info.reshape(UAV_NUMBER, 4)
+        uav_info = torch.from_numpy(uav_info).float().to(device)
+        connected_gu_positions = torch.from_numpy(connected_gu_positions).float().to(device)
+        action = []
+        with torch.no_grad:
+            tokens = transformer_policy(connected_gu_positions, uav_info)
         time_steps_done += 1
         for i in range(UAV_NUMBER):
             sample = random.random()
             eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1.0 * time_steps_done / EPS_DECAY)
             if sample > eps_threshold:
-                # return action according to LSTM [μx, μy]
-                output, (hs, cs) = lstm_policy(tokens[i], 1, lstm_hidden_states_policy[i].unsqueeze(0),
-                                               lstm_cell_states_policy[i].unsqueeze(0))
-                lstm_hidden_states_policy[i] = hs
-                lstm_cell_states_policy[i] = cs
-                output = output.cpu().numpy().reshape(2)
-                output = output * MAX_SPEED_UAV + np.random.normal(0, 1)  # TODO domanda 2
-                action.append(output)
+                with torch.no_grad:
+                    # return action according to MLP [vx, vy]
+                    output = mlp_policy(tokens[i])
+                    output = output.cpu().numpy().reshape(2)
+                    output = output * MAX_SPEED_UAV
+                    action.append(output)
             else:
                 output = env.action_space.sample()[0]
                 action.append(output)
@@ -130,19 +109,42 @@ if TRAIN:
 
         global UAV_NUMBER
 
-        if len(replay_buffer) < BATCH_SIZE:
+        if len(replay_buffer) < 3000:
             return
         transitions = replay_buffer.sample(BATCH_SIZE)
 
         # This converts batch-arrays of Transitions to Transition of batch-arrays.
         batch = Transition(*zip(*transitions))
 
-        next_states_batch = torch.cat(batch.next_states)
         states_batch = torch.cat(batch.states)
         actions_batch = torch.cat(batch.actions)
         rewards_batch = torch.cat(batch.rewards)
+        next_states_batch = torch.cat(batch.next_states)
 
-        for i in range(UAV_NUMBER):  # TODO domanda 5, 6, 7
+        # TODO !!!
+
+        for i in range(UAV_NUMBER):
+
+            uav_info_batch, connected_gu_positions_batch = np.split(states_batch, [UAV_NUMBER * 2], axis=0)
+            uav_info_batch = uav_info_batch.reshape(UAV_NUMBER, 4)
+            uav_info = torch.from_numpy(uav_info).float().to(device)
+            connected_gu_positions_batch = torch.from_numpy(connected_gu_positions_batch).float().to(device)
+            action = []
+            with torch.no_grad:
+                tokens = transformer_policy(connected_gu_positions_batch, uav_info_batch)
+            time_steps_done += 1
+            for i in range(UAV_NUMBER):
+            sample = random.random()
+            eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1.0 * time_steps_done / EPS_DECAY)
+            if sample > eps_threshold:
+                with torch.no_grad:
+                    # return action according to MLP [vx, vy]
+                    output = mlp_policy(tokens[i])
+                    output = output.cpu().numpy().reshape(2)
+                    output = output * MAX_SPEED_UAV
+                    action.append(output)
+
+
             # prendo nuovo stato, genero tokens con target transformer, genero azione con target lstm e uso questi per calcolare y
             target_q_values = rewards_batch[:, i].unsqueeze(1) + GAMMA * deep_Q_net_target(next_states_batch[:, i],
                                                                                            actions_batch[:, i])  # TODO
@@ -179,29 +181,17 @@ if TRAIN:
     for i_episode in range(0, num_episodes, 1):
         print("Episode: ", i_episode)
         state, info = env.reset(seed=int(time.perf_counter()))
-        state = normalize(state)  # Normalize in [-1,1]
         steps = 1
         while True:
-            uav_positions, connected_gu_positions_plus_last_shift_uav = np.split(state, [UAV_NUMBER], axis=0)
-            connected_gu_positions, last_shift_uav = np.split(connected_gu_positions_plus_last_shift_uav, [
-                len(connected_gu_positions_plus_last_shift_uav) - UAV_NUMBER], axis=0)
-            uav_info = np.concatenate([uav_positions,
-                                       last_shift_uav])  # TODO spostare normalizzazione in modello che ritorna osservazione per avere x y dx dy vicini!
-            uav_positions = torch.from_numpy(uav_positions).float().to(device)
-            connected_gu_positions = torch.from_numpy(connected_gu_positions).float().to(device)
-            tokens = transformer_policy(connected_gu_positions, uav_positions)
-
-            actions = select_actions_epsilon(tokens)
-
+            actions = select_actions_epsilon(state)
             next_state, reward, terminated, truncated, _ = env.step(actions)
 
             if steps > 300:
                 truncated = True
             done = terminated or truncated
 
-            if not terminated and not truncated:  # TODO rimuovo esempi dove agenti escono dall'environment
+            if not terminated and not truncated:
                 # Store the transition in memory
-                next_state = normalize(next_state)
                 replay_buffer.push(state, actions, next_state, reward)
                 # Move to the next state
                 state = next_state
@@ -219,12 +209,12 @@ if TRAIN:
                             1 - BETA)
                 transformer_target.load_state_dict(target_net_state_dict)
 
-                target_net_state_dict = lstm_target.state_dict()
-                policy_net_state_dict = lstm_policy.state_dict()
+                target_net_state_dict = mlp_target.state_dict()
+                policy_net_state_dict = mlp_policy.state_dict()
                 for key in policy_net_state_dict:
                     target_net_state_dict[key] = policy_net_state_dict[key] * BETA + target_net_state_dict[key] * (
                             1 - BETA)
-                lstm_target.load_state_dict(target_net_state_dict)
+                mlp_target.load_state_dict(target_net_state_dict)
 
                 target_net_state_dict = deep_Q_net_target.state_dict()
                 policy_net_state_dict = deep_Q_net_policy.state_dict()
@@ -255,7 +245,7 @@ if TRAIN:
 
     # save the policy nets
     torch.save(transformer_policy.state_dict(), '../neural_network/last_transformer.pth')
-    torch.save(lstm_policy.state_dict(), '../neural_network/last_lstm.pth')
+    torch.save(mlp_policy.state_dict(), '../neural_network/last_mlp.pth')
     torch.save(deep_Q_net_policy.state_dict(), '../neural_network/last_deep_q_net.pth')
 
     # writer.close()

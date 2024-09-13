@@ -28,4 +28,4 @@ class TransformerEncoderDecoder(nn.Module):
         # Rimuovi la dimensione batch
         tokens = tokens.squeeze(1)  # shape: (m, embed_dim)
 
-        return tokens
+        return tokens  # TODO tutta la gestione batch va fatta fuori forse

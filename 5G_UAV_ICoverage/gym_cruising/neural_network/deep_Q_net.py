@@ -4,8 +4,9 @@ import torch.nn.functional as F
 
 hidden_sizes = [8, 4, 2]
 
+
 class DeepQNet(nn.Module):
-    def __init__(self, state_dim, action_dim):
+    def __init__(self, state_dim=16, action_dim=2):
         super(DeepQNet, self).__init__()
 
         # Branch for state input

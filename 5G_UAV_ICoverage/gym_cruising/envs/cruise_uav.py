@@ -48,6 +48,7 @@ class CruiseUAV(Cruise):
 
     GU_MEAN_SPEED = 5.56  # 5.56 m/s
     GU_STANDARD_DEVIATION = 1.97  # va a 0 a circa 3 volte la deviazione standard
+    MAX_SPEED_UAV = 5.86  # m/s
 
     CONNECTION_THRESHOLD = 7.0
     COVERED_TRESHOLD = 10.0
@@ -56,6 +57,7 @@ class CruiseUAV(Cruise):
     high_observation: float
 
     gu_connected = 0
+    gu_covered = 0
 
     def __init__(self,
                  render_mode=None, track_id: int = 1) -> None:
@@ -70,22 +72,24 @@ class CruiseUAV(Cruise):
                                      shape=((self.UAV_NUMBER * 2) + self.gu_connected, 2),
                                      dtype=np.float64)
 
-        self.action_space = spaces.Discrete(1)  # TODO rimuovere e aprire sotto
+        # self.action_space = spaces.Discrete(1)  # TODO rimuovere e aprire sotto
 
-        # self.action_space = Box(low=(-1) * self.MAX_SPEED_UAV,
-        #                         high=self.MAX_SPEED_UAV,
-        #                         shape=(self.UAV_NUMBER, 2),
-        #                         dtype=np.float64)
+        self.action_space = Box(low=(-1) * self.MAX_SPEED_UAV,
+                                high=self.MAX_SPEED_UAV,
+                                shape=(self.UAV_NUMBER, 2),
+                                dtype=np.float64)
 
     def reset(self, seed=None, options=None) -> Tuple[np.ndarray, dict]:
         self.uav = []
         self.gu = []
         self.gu_number = self.STARTING_GU_NUMBER
         self.disappear_gu_prob = self.SPAWN_GU_PROB * 4 / self.gu_number
+        self.gu_connected = 0
+        self.gu_covered = 0
         return super().reset(seed=seed, options=options)
 
     def perform_action(self, actions) -> None:
-        # self.move_UAV(actions) TODO aprire
+        self.move_UAV(actions)
         self.update_GU()
         self.calculate_PathLoss_with_Markov_Chain()
         self.calculate_SINR()
@@ -128,7 +132,6 @@ class CruiseUAV(Cruise):
                     new_position = Point(previous_position.x_coordinate + distance, previous_position.y_coordinate)
 
                 # check if GU exit from environment
-                # TODO review if it's ok
                 if new_position.is_in_area(area):
                     repeat = False
                     gu.position = new_position
@@ -192,38 +195,45 @@ class CruiseUAV(Cruise):
         self.disappear_gu_prob = self.SPAWN_GU_PROB * 4 / self.gu_number
 
     def check_connection_and_coverage_UAV_GU(self):
+        connected = 0
+        covered = 0
         for i, gu in enumerate(self.gu):
             gu.setConnected(False)
             gu.setCovered(False)
             current_SINR = self.SINR[i]
             if any(SINR >= self.CONNECTION_THRESHOLD for SINR in current_SINR):
                 gu.setConnected(True)
+                connected += 1
             if any(SINR >= self.COVERED_TRESHOLD for SINR in current_SINR):
                 gu.setCovered(True)
+                covered += 1
+        self.gu_connected = connected
+        self.gu_covered = covered
 
     def get_observation(self) -> np.ndarray:
         self.observation_space = Box(low=self.low_observation,
                                      high=self.high_observation,
                                      shape=((self.UAV_NUMBER * 2) + self.gu_connected, 2),
                                      dtype=np.float64)
-        observation = np.array(
-            [normalizePositions([self.uav[0].position.x_coordinate, self.uav[0].position.y_coordinate])])
+        observation = [
+            normalizePositions(np.array([self.uav[0].position.x_coordinate, self.uav[0].position.y_coordinate]))]
         observation = np.append(observation,
-                                np.array([normalizeActions([self.uav[0].last_shift_x, self.uav[0].last_shift_y])]),
+                                [normalizeActions(np.array([self.uav[0].last_shift_x, self.uav[0].last_shift_y]))],
                                 axis=0)
         for i in range(1, self.UAV_NUMBER):
             observation = np.append(observation,
-                                    np.array([normalizePositions(
-                                        [self.uav[i].position.x_coordinate, self.uav[i].position.y_coordinate])]),
+                                    [normalizePositions(np.array(
+                                        [self.uav[i].position.x_coordinate, self.uav[i].position.y_coordinate]))],
                                     axis=0)
             observation = np.append(observation,
-                                    np.array([normalizeActions([self.uav[i].last_shift_x, self.uav[i].last_shift_y])]),
+                                    [normalizeActions(np.array([self.uav[i].last_shift_x, self.uav[i].last_shift_y]))],
                                     axis=0)
 
         for gu in self.gu:
             if gu.connected:
-                observation = np.append(observation, np.array(
-                    [normalizePositions([gu.position.x_coordinate, gu.position.y_coordinate])]),
+                observation = np.append(observation,
+                                        [normalizePositions(
+                                            np.array([gu.position.x_coordinate, gu.position.y_coordinate]))],
                                         axis=0)
         return observation
 
@@ -239,11 +249,7 @@ class CruiseUAV(Cruise):
 
     def calculate_reward(self) -> float:
         # calculate Region Cpverage Ratio
-        RCR = 0
-        for gu in self.gu:
-            if gu.covered:
-                RCR += 1
-        return RCR / len(self.gu)
+        return self.gu_covered / len(self.gu)
 
     def init_environment(self, options: Optional[dict] = None) -> None:
         self.init_uav()
@@ -328,13 +334,5 @@ class CruiseUAV(Cruise):
         return pygame_x, pygame_y
 
     def create_info(self) -> dict:
-        connected = 0
-        covered = 0
-        for gu in self.gu:
-            if gu.connected:
-                connected += 1
-                if gu.covered:
-                    covered += 1
-        self.gu_connected = connected
-        return {"GU connessi": str(connected), "GU ben coperti": str(covered), "Ground Users": str(
+        return {"GU connessi": str(self.gu_connected), "GU ben coperti": str(self.gu_covered), "Ground Users": str(
             self.gu_number)}

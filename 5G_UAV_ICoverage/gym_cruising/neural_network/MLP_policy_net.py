@@ -15,5 +15,4 @@ class MLPPolicyNet(nn.Module):
     def forward(self, token):
         x = F.relu(self.fl1(token))
         x = F.relu(self.fl2(x))
-        x = self.fl3(x) + torch.randn()  # TODO ok messa qui la perturbazione random?
-        return torch.nn.functional.tanh(x)
+        return self.fl3(x)

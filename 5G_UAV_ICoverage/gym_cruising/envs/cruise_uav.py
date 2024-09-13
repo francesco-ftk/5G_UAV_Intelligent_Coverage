@@ -189,7 +189,9 @@ class CruiseUAV(Cruise):
                 area = self.np_random.choice(self.track.spawn_area)
                 x_coordinate = self.np_random.uniform(area[0][0], area[0][1])
                 y_coordinate = self.np_random.uniform(area[1][0], area[1][1])
-                self.gu.append(GU(Point(x_coordinate, y_coordinate)))
+                gu = GU(Point(x_coordinate, y_coordinate))
+                self.initialize_channel(gu)
+                self.gu.append(gu)
                 self.gu_number += 1
         # update disappear gu probability
         self.disappear_gu_prob = self.SPAWN_GU_PROB * 4 / self.gu_number
@@ -287,15 +289,18 @@ class CruiseUAV(Cruise):
             x_coordinate = self.np_random.uniform(area[0][0], area[0][1])
             y_coordinate = self.np_random.uniform(area[1][0], area[1][1])
             gu = GU(Point(x_coordinate, y_coordinate))
-            for uav in self.uav:
-                distance = channels_utils.calculate_distance_uav_gu(uav.position, gu.position)
-                initial_channel_PLoS = channels_utils.get_PLoS(distance)
-                sample = random.random()
-                if sample <= initial_channel_PLoS:
-                    gu.channels_state.append(0)  # 0 = LoS
-                else:
-                    gu.channels_state.append(1)  # 1 = NLoS
+            self.initialize_channel(gu)
             self.gu.append(gu)
+
+    def initialize_channel(self, gu):
+        for uav in self.uav:
+            distance = channels_utils.calculate_distance_uav_gu(uav.position, gu.position)
+            initial_channel_PLoS = channels_utils.get_PLoS(distance)
+            sample = random.random()
+            if sample <= initial_channel_PLoS:
+                gu.channels_state.append(0)  # 0 = LoS
+            else:
+                gu.channels_state.append(1)  # 1 = NLoS
 
     def draw(self, canvas: Surface) -> None:
         # CANVAS

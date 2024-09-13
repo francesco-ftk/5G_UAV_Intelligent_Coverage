@@ -113,7 +113,7 @@ if TRAIN:
         # This converts batch-arrays of Transitions to Transition of batch-arrays.
         batch = Transition(*zip(*transitions))
 
-        states_batch = torch.cat(batch.states)
+        states_batch = torch.cat(batch.states)  # TODO arrivano numpy e non tensori torch!
         actions_batch = torch.cat(batch.actions)
         rewards_batch = torch.cat(batch.rewards)
         next_states_batch = torch.cat(batch.next_states)

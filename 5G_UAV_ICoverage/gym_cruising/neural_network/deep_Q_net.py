@@ -26,7 +26,7 @@ class DeepQNet(nn.Module):
         state_out = F.relu(self.fl2_state(state_out))
 
         # Process action through its branch
-        action_out = F.relu(self.fl1_action(action))
+        action_out = F.relu(self.fl1_action(action))  # TODO va bene?
 
         # Concatenate state and action outputs
         combined = torch.cat([state_out, action_out], dim=1)

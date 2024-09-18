@@ -32,7 +32,7 @@ time_steps_done = -1
 
 # if gpu is to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+device = "cpu"
 # print("DEVICE:", device)
 
 if TRAIN:
@@ -102,6 +102,8 @@ if TRAIN:
 
 
     def optimize_model():
+
+        torch.autograd.set_detect_anomaly(True)  # TODO detection
 
         global UAV_NUMBER
         global BATCH_SIZE
@@ -184,8 +186,9 @@ if TRAIN:
             torch.nn.utils.clip_grad_value_(deep_Q_net_policy.parameters(), 100)
             optimizer_deep_Q.step()
             # Optimize Transformer Net
+            loss_transformer = criterion(Q_values_batch, current_y_batch)
             optimizer_transformer.zero_grad()
-            loss_Q.backward(retain_graph=True)  # TODO messi senno errore
+            loss_transformer.backward(retain_graph=True)  # TODO messi senno errore
             torch.nn.utils.clip_grad_value_(transformer_policy.parameters(), 100)
             optimizer_transformer.step()
 
@@ -208,7 +211,7 @@ if TRAIN:
 
 
     if torch.cuda.is_available():
-        num_episodes = 20
+        num_episodes = 100
     else:
         num_episodes = 100
 

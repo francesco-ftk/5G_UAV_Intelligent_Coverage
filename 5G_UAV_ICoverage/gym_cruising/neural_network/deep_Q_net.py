@@ -2,37 +2,20 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-hidden_sizes = [8, 4, 2]
+hidden_sizes = [256, 256]
 
 
 class DeepQNet(nn.Module):
     def __init__(self, state_dim=16, action_dim=2):
         super(DeepQNet, self).__init__()
-
-        # Branch for state input
-        self.fl1_state = nn.Linear(state_dim, hidden_sizes[0])
-        self.fl2_state = nn.Linear(hidden_sizes[0], hidden_sizes[1])
-
-        # Branch for action input (this will be concatenated later)
-        self.fl1_action = nn.Linear(action_dim, hidden_sizes[2])
-
-        # Combined layers after concatenating state and action
-        self.fl3 = nn.Linear(hidden_sizes[1] + hidden_sizes[2], hidden_sizes[1])
-        self.fl4 = nn.Linear(hidden_sizes[1], 1)  # Output Q(s, a)
+        self.fl1 = nn.Linear(state_dim + action_dim, hidden_sizes[0])
+        self.fl2 = nn.Linear(hidden_sizes[0], hidden_sizes[1])
+        self.fl3 = nn.Linear(hidden_sizes[1], 1)  # Output Q(s, a)
 
     def forward(self, state, action):
+        combined = torch.cat([state, action], dim=1)
         # Process state through its branch
-        state_out = F.relu(self.fl1_state(state))
-        state_out = F.relu(self.fl2_state(state_out))
-
-        # Process action through its branch
-        action_out = F.relu(self.fl1_action(action))  # TODO va bene?
-
-        # Concatenate state and action outputs
-        combined = torch.cat([state_out, action_out], dim=1)
-
-        # Further processing
-        x = F.relu(self.fl3(combined))
-
+        out = F.relu(self.fl1(combined))
+        out = F.relu(self.fl2(out))
         # return Q-value(s, a)
-        return self.fl4(x)
+        return self.fl3(out)

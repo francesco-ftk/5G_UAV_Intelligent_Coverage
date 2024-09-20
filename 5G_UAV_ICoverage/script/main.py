@@ -21,7 +21,7 @@ TRAIN = True
 EPS_START = 0.9  # the starting value of epsilon
 EPS_END = 0.3  # the final value of epsilon
 EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
-BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
+BATCH_SIZE = 10  # 256  # is the number of transitions random sampled from the replay buffer
 LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
 BETA = 0.005  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
@@ -32,7 +32,6 @@ time_steps_done = -1
 
 # if gpu is to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = "cpu"
 # print("DEVICE:", device)
 
 if TRAIN:
@@ -47,12 +46,12 @@ if TRAIN:
     deep_Q_net_policy = DeepQNet().to(device)
 
     # COMMENT FOR INITIAL TRAINING
-    PATH_TRANSFORMER = './neural_network/lastTransformer.pth'
-    transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    PATH_MLP_POLICY = './neural_network/lastMLP.pth'
-    mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
-    PATH_DEEP_Q = './neural_network/lastDeepQ.pth'
-    deep_Q_net_policy.load_state_dict(torch.load(PATH_DEEP_Q))
+    # PATH_TRANSFORMER = './neural_network/lastTransformer.pth'
+    # transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
+    # PATH_MLP_POLICY = './neural_network/lastMLP.pth'
+    # mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
+    # PATH_DEEP_Q = './neural_network/lastDeepQ.pth'
+    # deep_Q_net_policy.load_state_dict(torch.load(PATH_DEEP_Q))
 
     # ACTOR POLICY NET target
     transformer_target = TransformerEncoderDecoder().to(device)
@@ -70,7 +69,7 @@ if TRAIN:
     optimizer_mlp = optim.Adam(mlp_policy.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
     optimizer_deep_Q = optim.Adam(deep_Q_net_policy.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
 
-    replay_buffer = ReplayMemory(10000)
+    replay_buffer = ReplayMemory(100000)
 
 
     def select_actions_epsilon(state):
@@ -111,6 +110,7 @@ if TRAIN:
 
         if len(replay_buffer) < 3000:
             return
+        print("step")
         transitions = replay_buffer.sample(BATCH_SIZE)
 
         # This converts batch-arrays of Transitions to Transition of batch-arrays.
@@ -181,16 +181,14 @@ if TRAIN:
 
             criterion = nn.MSELoss()
             # Optimize Deep Q Net
-            loss_Q = criterion(Q_values_batch, current_y_batch)
+            loss = criterion(Q_values_batch, current_y_batch)
             optimizer_deep_Q.zero_grad()
-            loss_Q.backward(retain_graph=True)  # TODO messi senno errore
+            optimizer_transformer.zero_grad()
+            loss.backward()  # TODO messi senno errore
             torch.nn.utils.clip_grad_value_(deep_Q_net_policy.parameters(), 100)
+            torch.nn.utils.clip_grad_value_(transformer_policy.parameters(), 100)
             optimizer_deep_Q.step()
             # Optimize Transformer Net
-            loss_transformer = criterion(Q_values_batch, current_y_batch)
-            optimizer_transformer.zero_grad()
-            loss_transformer.backward(retain_graph=True)  # TODO messi senno errore
-            torch.nn.utils.clip_grad_value_(transformer_policy.parameters(), 100)
             optimizer_transformer.step()
 
             # UPDATE POLICY
@@ -206,13 +204,13 @@ if TRAIN:
 
             # Optimize Policy Net MLP
             optimizer_mlp.zero_grad()
-            loss_Policy.backward(retain_graph=True)  # TODO messi senno errore
+            loss_Policy.backward()  # TODO messi senno errore
             torch.nn.utils.clip_grad_value_(mlp_policy.parameters(), 100)
             optimizer_mlp.step()
 
 
     if torch.cuda.is_available():
-        num_episodes = 100
+        num_episodes = 2000
     else:
         num_episodes = 100
 
@@ -242,7 +240,7 @@ if TRAIN:
                 optimize_model()
                 steps += 1
 
-            if len(replay_buffer) >= 3000 and steps % 50 == 0:
+            if len(replay_buffer) >= 3000:
                 # Soft update of the target network's weights
                 # Q′ ← β * Q + (1 − β) * Q′
                 target_net_state_dict = transformer_target.state_dict()

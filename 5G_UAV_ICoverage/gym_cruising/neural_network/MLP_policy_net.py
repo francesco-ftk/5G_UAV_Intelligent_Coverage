@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-hidden_sizes = [8, 4]
+hidden_sizes = [256, 256]
 
 
 class MLPPolicyNet(nn.Module):

@@ -91,12 +91,13 @@ if TRAIN:
                 with torch.no_grad():
                     # return action according to MLP [vx, vy]
                     output = mlp_policy(tokens[i])
-                    output = F.tanh(output + torch.randn(2).to(device))
+                    output = F.tanh(output + torch.randn(2).to(
+                        device))  # TODO tanh messo fuori per fare prima aggiunta randomica, non serve anche in test?
                     output = output.cpu().numpy().reshape(2)
                     output = output * MAX_SPEED_UAV
                     action.append(output)
             else:
-                output = env.action_space.sample()[0]
+                output = env.action_space.sample()[0]  # TODO rivedere
                 action.append(output)
         return action
 

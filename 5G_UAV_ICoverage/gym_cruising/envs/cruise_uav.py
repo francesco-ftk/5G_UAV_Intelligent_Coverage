@@ -16,7 +16,7 @@ from gym_cruising.envs.cruise import Cruise
 from gym_cruising.geometry.point import Point
 from gym_cruising.utils import channels_utils
 
-MAX_SPEED_UAV = 50.0  # 5.86  # m/s
+MAX_SPEED_UAV = 20.0  # 5.86  # m/s
 MAX_POSITION = 4000.0
 
 
@@ -48,7 +48,7 @@ class CruiseUAV(Cruise):
 
     GU_MEAN_SPEED = 5.56  # 5.56 m/s
     GU_STANDARD_DEVIATION = 1.97  # va a 0 a circa 3 volte la deviazione standard
-    MAX_SPEED_UAV = 50.0  # 5.86  # m/s
+    MAX_SPEED_UAV = 20.0  # 5.86  # m/s
 
     CONNECTION_THRESHOLD = 7.0
     COVERED_TRESHOLD = 10.0

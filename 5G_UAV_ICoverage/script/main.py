@@ -15,16 +15,16 @@ from gym_cruising.neural_network.transformer_encoder_decoder import TransformerE
 
 UAV_NUMBER = 1
 
-TRAIN = True
+TRAIN = False
 EPS_START = 0.9  # the starting value of epsilon
 EPS_END = 0.3  # the final value of epsilon
 EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
-BATCH_SIZE = 256  # 256  # is the number of transitions random sampled from the replay buffer
+BATCH_SIZE = 15  # 256  # is the number of transitions random sampled from the replay buffer
 LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
 BETA = 0.005  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
 
-MAX_SPEED_UAV = 50.0  # 5.86  # m/s
+MAX_SPEED_UAV = 20.0  # 5.86  # m/s
 
 time_steps_done = -1
 
@@ -192,7 +192,7 @@ if TRAIN:
             criterion = nn.MSELoss()
             # Optimize Deep Q Net
             loss = criterion(Q_values_batch, current_y_batch)
-            print("LOSS: ", loss)
+            # print("LOSS: ", loss)
             optimizer_deep_Q.zero_grad()
             optimizer_transformer.zero_grad()
             loss.backward()
@@ -247,7 +247,7 @@ if TRAIN:
 
 
     if torch.cuda.is_available():
-        num_episodes = 200
+        num_episodes = 500
     else:
         num_episodes = 100
 

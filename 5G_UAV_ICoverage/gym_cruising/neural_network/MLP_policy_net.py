@@ -15,4 +15,4 @@ class MLPPolicyNet(nn.Module):
     def forward(self, token):
         x = F.relu(self.fl1(token))
         x = F.relu(self.fl2(x))
-        return self.fl3(x)
+        return F.tanh(self.fl3(x))

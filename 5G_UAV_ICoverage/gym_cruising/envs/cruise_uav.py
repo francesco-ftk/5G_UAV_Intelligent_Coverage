@@ -64,15 +64,13 @@ class CruiseUAV(Cruise):
         super().__init__(render_mode, track_id)
 
         spawn_area = self.np_random.choice(self.track.spawn_area)
-        self.low_observation = float(spawn_area[0][0])
-        self.high_observation = float(spawn_area[0][1])
+        self.low_observation = float(spawn_area[0][0] - self.MAX_SPEED_UAV)
+        self.high_observation = float(spawn_area[0][1] + self.MAX_SPEED_UAV)
 
         self.observation_space = Box(low=self.low_observation,
                                      high=self.high_observation,
                                      shape=((self.UAV_NUMBER * 2) + self.gu_connected, 2),
                                      dtype=np.float64)
-
-        # self.action_space = spaces.Discrete(1)  # TODO rimuovere e aprire sotto
 
         self.action_space = Box(low=(-1) * self.MAX_SPEED_UAV,
                                 high=self.MAX_SPEED_UAV,

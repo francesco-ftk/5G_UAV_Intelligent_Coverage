@@ -38,8 +38,8 @@ class CruiseUAV(Cruise):
     pathLoss = []
     SINR = []
 
-    UAV_NUMBER = 1
-    STARTING_GU_NUMBER = 60
+    UAV_NUMBER = 3
+    STARTING_GU_NUMBER = 120
     gu_number: int
     MINIMUM_DISTANCE_BETWEEN_UAV = 1300
 

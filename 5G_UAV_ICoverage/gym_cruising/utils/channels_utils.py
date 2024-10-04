@@ -3,7 +3,7 @@ import numpy as np
 from gym_cruising.geometry.point import Point
 import math
 
-UAV_ALTITUDE = 30  # 120 max altitude for law
+UAV_ALTITUDE = 500  # 120 max altitude for law
 a = 12.08  # in the dense urban case
 b = 0.11  # in the dense urban case
 nNLos = 23  # [dB] in the dense urban case
@@ -48,10 +48,14 @@ def get_PathLoss(distance_uav_gu: float, current_state: int):
         return FSPL + nLos
     return FSPL + nNLos
 
+# def getSINR(path_loss: float, interference_path_loss: []):
+#     return W2dB((dBm2Watt(TRASMISSION_POWER) * getChannelGain(path_loss)) / (
+#                 getInterference(interference_path_loss) + dBm2Watt(
+#             POWER_SPECTRAL_DENSITY_OF_NOISE) * CHANNEL_BANDWIDTH))
+
 
 def getSINR(path_loss: float, interference_path_loss: []):
-    return W2dB((dBm2Watt(TRASMISSION_POWER) * getChannelGain(path_loss)) / (
-                getInterference(interference_path_loss) + dBm2Watt(
+    return W2dB((dBm2Watt(TRASMISSION_POWER) * getChannelGain(path_loss)) / (dBm2Watt(
             POWER_SPECTRAL_DENSITY_OF_NOISE) * CHANNEL_BANDWIDTH))
 
 

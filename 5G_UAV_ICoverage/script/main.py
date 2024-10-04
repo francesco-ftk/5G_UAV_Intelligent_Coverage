@@ -13,7 +13,7 @@ from gym_cruising.neural_network.MLP_policy_net import MLPPolicyNet
 from gym_cruising.neural_network.deep_Q_net import DeepQNet
 from gym_cruising.neural_network.transformer_encoder_decoder import TransformerEncoderDecoder
 
-UAV_NUMBER = 1
+UAV_NUMBER = 3
 
 TRAIN = False
 EPS_START = 0.9  # the starting value of epsilon

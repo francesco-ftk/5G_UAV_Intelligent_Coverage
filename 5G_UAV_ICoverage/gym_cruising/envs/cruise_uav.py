@@ -249,6 +249,7 @@ class CruiseUAV(Cruise):
 
     def calculate_reward(self) -> float:
         # calculate Region Cpverage Ratio
+        # TODO Aggiungere penalità per collizìsione e uscita da environment
         return self.gu_covered / len(self.gu)
 
     def init_environment(self, options: Optional[dict] = None) -> None:

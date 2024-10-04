@@ -317,10 +317,10 @@ else:
     transformer_policy = TransformerEncoderDecoder().to(device)
     mlp_policy = MLPPolicyNet().to(device)
 
-    PATH_TRANSFORMER = './neural_network/lastTransformer.pth'
-    transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    PATH_MLP_POLICY = './neural_network/lastMLP.pth'
-    mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
+    # PATH_TRANSFORMER = './neural_network/lastTransformer.pth'
+    # transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
+    # PATH_MLP_POLICY = './neural_network/lastMLP.pth'
+    # mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
 
     terminated = 0
 

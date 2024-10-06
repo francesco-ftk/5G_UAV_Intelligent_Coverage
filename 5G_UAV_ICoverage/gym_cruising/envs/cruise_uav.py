@@ -16,8 +16,8 @@ from gym_cruising.envs.cruise import Cruise
 from gym_cruising.geometry.point import Point
 from gym_cruising.utils import channels_utils
 
-MAX_SPEED_UAV = 20.0  # 5.86  # m/s
-MAX_POSITION = 4000.0
+MAX_SPEED_UAV = 5.56  # m/s - about 20 Km/h
+MAX_POSITION = 6000.0  # 4000.0
 
 
 def normalizePositions(positions: np.ndarray) -> np.ndarray:  # Normalize in [-1,1]
@@ -41,22 +41,21 @@ class CruiseUAV(Cruise):
     UAV_NUMBER = 3
     STARTING_GU_NUMBER = 120
     gu_number: int
-    MINIMUM_DISTANCE_BETWEEN_UAV = 1300
+    MINIMUM_STARTING_DISTANCE_BETWEEN_UAV = 1000 # meters
+    COLLISION_DISTANCE = 90  # meters
 
     SPAWN_GU_PROB = 0.0005
     disappear_gu_prob: float
 
     GU_MEAN_SPEED = 5.56  # 5.56 m/s
     GU_STANDARD_DEVIATION = 1.97  # va a 0 a circa 3 volte la deviazione standard
-    MAX_SPEED_UAV = 20.0  # 5.86  # m/s
+    MAX_SPEED_UAV = 5.56  # m/s - about 20 Km/h
 
-    CONNECTION_THRESHOLD = 7.0
-    COVERED_TRESHOLD = 10.0
+    COVERED_TRESHOLD = 10.0  # dB
 
     low_observation: float
     high_observation: float
 
-    gu_connected = 0
     gu_covered = 0
 
     def __init__(self,
@@ -69,7 +68,7 @@ class CruiseUAV(Cruise):
 
         self.observation_space = Box(low=self.low_observation,
                                      high=self.high_observation,
-                                     shape=((self.UAV_NUMBER * 2) + self.gu_connected, 2),
+                                     shape=((self.UAV_NUMBER * 2) + self.gu_covered, 2),
                                      dtype=np.float64)
 
         self.action_space = Box(low=(-1) * self.MAX_SPEED_UAV,
@@ -82,7 +81,6 @@ class CruiseUAV(Cruise):
         self.gu = []
         self.gu_number = self.STARTING_GU_NUMBER
         self.disappear_gu_prob = self.SPAWN_GU_PROB * 4 / self.gu_number
-        self.gu_connected = 0
         self.gu_covered = 0
         return super().reset(seed=seed, options=options)
 
@@ -195,25 +193,19 @@ class CruiseUAV(Cruise):
         self.disappear_gu_prob = self.SPAWN_GU_PROB * 4 / self.gu_number
 
     def check_connection_and_coverage_UAV_GU(self):
-        connected = 0
         covered = 0
         for i, gu in enumerate(self.gu):
-            gu.setConnected(False)
             gu.setCovered(False)
             current_SINR = self.SINR[i]
-            if any(SINR >= self.CONNECTION_THRESHOLD for SINR in current_SINR):
-                gu.setConnected(True)
-                connected += 1
             if any(SINR >= self.COVERED_TRESHOLD for SINR in current_SINR):
                 gu.setCovered(True)
                 covered += 1
-        self.gu_connected = connected
         self.gu_covered = covered
 
     def get_observation(self) -> np.ndarray:
         self.observation_space = Box(low=self.low_observation,
                                      high=self.high_observation,
-                                     shape=((self.UAV_NUMBER * 2) + self.gu_connected, 2),
+                                     shape=((self.UAV_NUMBER * 2) + self.gu_covered, 2),
                                      dtype=np.float64)
         observation = [
             normalizePositions(np.array([self.uav[0].position.x_coordinate, self.uav[0].position.y_coordinate]))]
@@ -230,7 +222,7 @@ class CruiseUAV(Cruise):
                                     axis=0)
 
         for gu in self.gu:
-            if gu.connected:
+            if gu.covered:
                 observation = np.append(observation,
                                         [normalizePositions(
                                             np.array([gu.position.x_coordinate, gu.position.y_coordinate]))],
@@ -239,17 +231,30 @@ class CruiseUAV(Cruise):
 
     def check_if_terminated(self) -> bool:
         area = self.np_random.choice(self.track.spawn_area)
-        for uav in self.uav:
+        for i, uav in enumerate(self.uav):
             if not uav.position.is_in_area(area):
                 return True
+            if self.collision(i, uav):
+                return True
         return False
+
+    def collision(self, current_uav_index, uav) -> bool:
+        collision = False
+        for j, other_uav in enumerate(self.uav):
+            if j != current_uav_index:
+                if uav.position.calculate_distance(other_uav.position) <= self.COLLISION_DISTANCE:
+                    collision = True
+                    break
+        return collision
 
     def check_if_truncated(self) -> bool:
         return False
 
-    def calculate_reward(self) -> float:
-        # calculate Region Cpverage Ratio
-        # TODO Aggiungere penalità per collizìsione e uscita da environment
+    def calculate_reward(self, terminated: bool) -> float:
+        if terminated:
+            # collision or environment exit penality
+            return -10.0
+        # calculate Region Coverage Ratio
         return self.gu_covered / len(self.gu)
 
     def init_environment(self, options: Optional[dict] = None) -> None:
@@ -268,19 +273,19 @@ class CruiseUAV(Cruise):
             x_coordinate = self.np_random.uniform(area[0][0], area[0][1])
             y_coordinate = self.np_random.uniform(area[1][0], area[1][1])
             position = Point(x_coordinate, y_coordinate)
-            while self.collision_avoided(i, position):
+            while self.are_too_close(i, position):
                 x_coordinate = self.np_random.uniform(area[0][0], area[0][1])
                 y_coordinate = self.np_random.uniform(area[1][0], area[1][1])
                 position = Point(x_coordinate, y_coordinate)
             self.uav.append(UAV(position))
 
-    def collision_avoided(self, uav_index, position):
-        collision = False
+    def are_too_close(self, uav_index, position):
+        too_close = False
         for j in range(uav_index):
-            if self.uav[j].position.calculate_distance(position) <= self.MINIMUM_DISTANCE_BETWEEN_UAV:
-                collision = True
+            if self.uav[j].position.calculate_distance(position) <= self.MINIMUM_STARTING_DISTANCE_BETWEEN_UAV:
+                too_close = True
                 break
-        return collision
+        return too_close
 
     def init_gu(self) -> None:
         area = self.np_random.choice(self.track.spawn_area)
@@ -338,5 +343,5 @@ class CruiseUAV(Cruise):
         return pygame_x, pygame_y
 
     def create_info(self) -> dict:
-        return {"GU connessi": str(self.gu_connected), "GU ben coperti": str(self.gu_covered), "Ground Users": str(
+        return {"GU coperti": str(self.gu_covered), "Ground Users": str(
             self.gu_number)}

@@ -20,10 +20,10 @@ class Cruise(Env):
     can inherit from one another and only redefine certain methods.
     """
 
-    RESOLUTION = 0.25  # 1.0 metro => 0.25 pixels
+    RESOLUTION = 0.1667  # 1.0 metro => 0.1667 pixels, 0.25 pixels for track 2
     WIDTH = 3
-    X_OFFSET = 0  # 50
-    Y_OFFSET = 0  # -50
+    Y_OFFSET = 0
+    X_OFFSET = 0
 
     track: Track
     world: Tuple[Line, ...]
@@ -49,7 +49,7 @@ class Cruise(Env):
         state = self.get_observation()
         terminated = self.check_if_terminated()
         truncated = self.check_if_truncated()
-        reward = self.calculate_reward()
+        reward = self.calculate_reward(terminated)
 
         if self.render_mode == "human":
             self.render_frame()
@@ -70,16 +70,10 @@ class Cruise(Env):
 
     @abstractmethod
     def check_if_truncated(self) -> bool:
-        """
-        # We use `np.clip` to make sure we don't leave the grid
-        self._agent_location = np.clip(
-            self._agent_location + direction, 0, self.size - 1
-        )
-        """
         pass
 
     @abstractmethod
-    def calculate_reward(self) -> float:
+    def calculate_reward(self, terminated: bool) -> float:
         pass
 
     @abstractmethod

@@ -3,7 +3,7 @@ import numpy as np
 from gym_cruising.geometry.point import Point
 import math
 
-UAV_ALTITUDE = 500  # 120 max altitude for law
+UAV_ALTITUDE = 500
 a = 12.08  # in the dense urban case
 b = 0.11  # in the dense urban case
 nNLos = 23  # [dB] in the dense urban case

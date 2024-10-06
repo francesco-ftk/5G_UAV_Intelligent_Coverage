@@ -19,21 +19,21 @@ TRAIN = False
 EPS_START = 0.9  # the starting value of epsilon
 EPS_END = 0.3  # the final value of epsilon
 EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
-BATCH_SIZE = 15  # 256  # is the number of transitions random sampled from the replay buffer
+BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
 LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
 BETA = 0.005  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
 
-MAX_SPEED_UAV = 20.0  # 5.86  # m/s
+MAX_SPEED_UAV = 5.56  # m/s - about 20 Km/h
 
 time_steps_done = -1
 
 # if gpu is to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# print("DEVICE:", device)
+print("DEVICE:", device)
 
 if TRAIN:
-    env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=2)
+    env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=1)
     env.action_space.seed(42)
 
     # ACTOR POLICY NET policy
@@ -247,9 +247,9 @@ if TRAIN:
 
 
     if torch.cuda.is_available():
-        num_episodes = 500
+        num_episodes = 10000
     else:
-        num_episodes = 100
+        num_episodes = 1000
 
     print("START UAV COOPERATIVE COVERAGE TRAINING")
 
@@ -308,8 +308,11 @@ else:
 
     # For accuracy check
     # env = env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=2)
+    # TEST_EPISODES = 100
+
     # For visible check
-    env = env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=2)
+    env = env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=1)
+    TEST_EPISODES = 5
 
     env.action_space.seed(42)
 
@@ -324,7 +327,6 @@ else:
 
     terminated = 0
 
-    TEST_EPISODES = 100
     for j in range(TEST_EPISODES):
         print("Episode: ", j)
         state, info = env.reset(seed=int(time.perf_counter()))

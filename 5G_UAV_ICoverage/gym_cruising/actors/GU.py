@@ -4,36 +4,25 @@ from gym_cruising.geometry.point import Point
 
 class GU:
     position: Point
-    connected: bool
     covered: bool
     channels_state = []
     previous_position: Point
 
     def __init__(self, position: Point) -> None:
         self.position = position
-        self.connected = False
         self.covered = False
         self.channels_state = []
         self.previous_position = position
 
     def getColor(self):
-        if self.connected:
-            if self.covered:
-                return Color.GREEN.value
-            else:
-                return Color.YELLOW.value
+        if self.covered:
+            return Color.GREEN.value
         return Color.RED.value
 
     def getImage(self):
-        if self.connected:
-            if self.covered:
-                return './gym_cruising/images/green30.png'
-            else:
-                return './gym_cruising/images/blue30.png'
+        if self.covered:
+            return './gym_cruising/images/green30.png'
         return './gym_cruising/images/white30.png'
-
-    def setConnected(self, conneted: bool):
-        self.connected = conneted
 
     def setCovered(self, covered: bool):
         self.covered = covered

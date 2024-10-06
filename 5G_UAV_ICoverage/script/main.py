@@ -15,7 +15,7 @@ from gym_cruising.neural_network.transformer_encoder_decoder import TransformerE
 
 UAV_NUMBER = 3
 
-TRAIN = False
+TRAIN = True
 EPS_START = 0.9  # the starting value of epsilon
 EPS_END = 0.3  # the final value of epsilon
 EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay

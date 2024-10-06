@@ -223,7 +223,7 @@ if TRAIN:
 
     def soft_update_target_networks():
         # Soft update of the target network's weights
-        # Q′ = beta * Q + (1 − beta) * Q′
+        # Q' = beta * Q + (1 - beta) * Q'
         target_net_state_dict = transformer_target.state_dict()
         policy_net_state_dict = transformer_policy.state_dict()
         for key in policy_net_state_dict:

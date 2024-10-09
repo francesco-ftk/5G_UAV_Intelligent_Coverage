@@ -1,3 +1,6 @@
+import sys
+sys.path.append('/home/fantechi/tesi/5G_UAV_Intelligent_Coverage/5G_UAV_ICoverage')
+
 import time
 import gymnasium as gym
 import torch

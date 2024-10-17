@@ -33,6 +33,11 @@ time_steps_done = -1
 
 # if gpu is to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# TODO
+# Check gpu libera e in base a quello device = cuda:0 cuda:1
+# nvidia-smi  nvtop (comando per check)
+# tmux per creare shell per controllo pc unifi
+# waitAndBias per visualizzare log online
 print("DEVICE:", device)
 
 if TRAIN:
@@ -172,6 +177,9 @@ if TRAIN:
         tokens_batch_states = transformer_policy(state_connected_gu_positions_batch,
                                                  state_uav_info_batch)  # [BATCH_SIZE, UAV_NUMBER, 16]
 
+        loss_Q = 0.0
+        loss_policy = 0.0
+
         for i in range(UAV_NUMBER):
             # UPDATE Q-FUNCTION
             with torch.no_grad():
@@ -194,16 +202,7 @@ if TRAIN:
 
             criterion = nn.MSELoss()
             # Optimize Deep Q Net
-            loss = criterion(Q_values_batch, current_y_batch)
-            # print("LOSS: ", loss)
-            optimizer_deep_Q.zero_grad()
-            optimizer_transformer.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_value_(deep_Q_net_policy.parameters(), 100)
-            torch.nn.utils.clip_grad_value_(transformer_policy.parameters(), 100)
-            optimizer_deep_Q.step()
-            # Optimize Transformer Net
-            optimizer_transformer.step()
+            loss_Q += criterion(Q_values_batch, current_y_batch)
 
             # UPDATE POLICY
             # slice i-th UAV's tokens [BATCH_SIZE, 1, 16]
@@ -213,13 +212,23 @@ if TRAIN:
             output_batch = torch.clip(output_batch, -1.0, 1.0)
             output_batch = output_batch * MAX_SPEED_UAV  # actions batch for UAV i-th [BATCH_SIZE, 2]
             Q_values_batch = deep_Q_net_policy(current_batch_tensor_tokens_states_target, output_batch)
-            loss_Policy = -Q_values_batch.mean()
+            loss_policy += -Q_values_batch.mean()
 
-            # Optimize Policy Net MLP
-            optimizer_mlp.zero_grad()
-            loss_Policy.backward()
-            torch.nn.utils.clip_grad_value_(mlp_policy.parameters(), 100)
-            optimizer_mlp.step()
+        # print("LOSS: ", loss)
+        optimizer_deep_Q.zero_grad()
+        optimizer_transformer.zero_grad()
+        loss_Q.backward()
+        torch.nn.utils.clip_grad_value_(deep_Q_net_policy.parameters(), 100)
+        torch.nn.utils.clip_grad_value_(transformer_policy.parameters(), 100)
+        optimizer_deep_Q.step()
+        # Optimize Transformer Net
+        optimizer_transformer.step()
+
+        # Optimize Policy Net MLP
+        optimizer_mlp.zero_grad()
+        loss_policy.backward()
+        torch.nn.utils.clip_grad_value_(mlp_policy.parameters(), 100)
+        optimizer_mlp.step()
 
         soft_update_target_networks()
 

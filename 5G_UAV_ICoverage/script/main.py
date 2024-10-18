@@ -275,9 +275,9 @@ if TRAIN:
         state, info = env.reset(seed=int(time.perf_counter()))
         steps = 1
         if i_episode % 500 == 0:
-            torch.save(transformer_policy.state_dict(), './neural_network/lastTransformer.pth')
-            torch.save(mlp_policy.state_dict(), './neural_network/lastMLP.pth')
-            torch.save(deep_Q_net_policy.state_dict(), './neural_network/lastDeepQ.pth')
+            torch.save(transformer_policy.state_dict(), 'neural_network/lastTransformer.pth')
+            torch.save(mlp_policy.state_dict(), 'neural_network/lastMLP.pth')
+            torch.save(deep_Q_net_policy.state_dict(), 'neural_network/lastDeepQ.pth')
         while True:
             actions = select_actions_epsilon(state)
             next_state, reward, terminated, truncated, _ = env.step(actions)
@@ -298,9 +298,9 @@ if TRAIN:
                 break
 
     # save the policy nets
-    torch.save(transformer_policy.state_dict(), './neural_network/lastTransformer.pth')
-    torch.save(mlp_policy.state_dict(), './neural_network/lastMLP.pth')
-    torch.save(deep_Q_net_policy.state_dict(), './neural_network/lastDeepQ.pth')
+    torch.save(transformer_policy.state_dict(), 'neural_network/lastTransformer.pth')
+    torch.save(mlp_policy.state_dict(), 'neural_network/lastMLP.pth')
+    torch.save(deep_Q_net_policy.state_dict(), 'neural_network/lastDeepQ.pth')
 
     wandb.finish()
     env.close()

@@ -10,6 +10,7 @@ import numpy as np
 import math
 import random
 import torch.nn.functional as F
+import wandb
 
 from gym_cruising.memory.replay_memory import ReplayMemory, Transition
 from gym_cruising.neural_network.MLP_policy_net import MLPPolicyNet
@@ -32,15 +33,16 @@ MAX_SPEED_UAV = 5.56  # m/s - about 20 Km/h
 time_steps_done = -1
 
 # if gpu is to be used
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # TODO
-# Check gpu libera e in base a quello device = cuda:0 cuda:1
-# nvidia-smi  nvtop (comando per check)
-# tmux per creare shell per controllo pc unifi
-# waitAndBias per visualizzare log online
+# Check free gpu in order to choose device = cuda:0 or cuda:1 -> nvidia-smi
+# tmux for shell remote control
 print("DEVICE:", device)
 
 if TRAIN:
+
+    wandb.init(project="5G_UAV_ICoverage")
+
     env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=1)
     env.action_space.seed(42)
 
@@ -214,6 +216,9 @@ if TRAIN:
             Q_values_batch = deep_Q_net_policy(current_batch_tensor_tokens_states_target, output_batch)
             loss_policy += -Q_values_batch.mean()
 
+        # log metrics to wandb
+        wandb.log({"loss_Q": loss_Q, "loss_policy": loss_policy})
+
         # print("LOSS: ", loss)
         optimizer_deep_Q.zero_grad()
         optimizer_transformer.zero_grad()
@@ -259,7 +264,7 @@ if TRAIN:
 
 
     if torch.cuda.is_available():
-        num_episodes = 10000
+        num_episodes = 20000
     else:
         num_episodes = 1000
 
@@ -293,7 +298,7 @@ if TRAIN:
     torch.save(mlp_policy.state_dict(), './neural_network/lastMLP.pth')
     torch.save(deep_Q_net_policy.state_dict(), './neural_network/lastDeepQ.pth')
 
-    # writer.close()
+    wandb.finish()
     env.close()
     print('TRAINING COMPLETE')
 

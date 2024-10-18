@@ -20,12 +20,12 @@ from gym_cruising.neural_network.transformer_encoder_decoder import TransformerE
 UAV_NUMBER = 3
 
 TRAIN = True
-EPS_START = 0.9  # the starting value of epsilon
-EPS_END = 0.3  # the final value of epsilon
+EPS_START = 0.99  # the starting value of epsilon
+EPS_END = 0.4  # the final value of epsilon
 EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
 BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
-LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
-BETA = 0.005  # is the update rate of the target network
+LEARNING_RATE = 1e-5  # is the learning rate of the Adam optimizer, should decrease (1e-5)
+BETA = 0.0005  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
 
 MAX_SPEED_UAV = 5.56  # m/s - about 20 Km/h
@@ -264,9 +264,9 @@ if TRAIN:
 
 
     if torch.cuda.is_available():
-        num_episodes = 20000
+        num_episodes = 2000
     else:
-        num_episodes = 1000
+        num_episodes = 100
 
     print("START UAV COOPERATIVE COVERAGE TRAINING")
 

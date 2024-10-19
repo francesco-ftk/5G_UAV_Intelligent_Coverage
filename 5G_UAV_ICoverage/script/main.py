@@ -1,4 +1,5 @@
 import sys
+
 sys.path.append('/home/fantechi/tesi/5G_UAV_Intelligent_Coverage/5G_UAV_ICoverage')
 
 import time
@@ -34,9 +35,6 @@ time_steps_done = -1
 
 # if gpu is to be used
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-# TODO
-# Check free gpu in order to choose device = cuda:0 or cuda:1 -> nvidia-smi
-# tmux for shell remote control
 print("DEVICE:", device)
 
 if TRAIN:
@@ -115,7 +113,7 @@ if TRAIN:
         global UAV_NUMBER
         global BATCH_SIZE
 
-        if len(replay_buffer) < 5000:
+        if len(replay_buffer) < 9000:
             return
 
         transitions = replay_buffer.sample(BATCH_SIZE)
@@ -264,7 +262,7 @@ if TRAIN:
 
 
     if torch.cuda.is_available():
-        num_episodes = 2000
+        num_episodes = 2050
     else:
         num_episodes = 100
 
@@ -333,7 +331,6 @@ else:
 
     # For visible check
     env = env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=1)
-    TEST_EPISODES = 5
 
     env.action_space.seed(42)
 
@@ -341,39 +338,33 @@ else:
     transformer_policy = TransformerEncoderDecoder().to(device)
     mlp_policy = MLPPolicyNet().to(device)
 
-    # PATH_TRANSFORMER = './neural_network/lastTransformer.pth'
-    # transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    # PATH_MLP_POLICY = './neural_network/lastMLP.pth'
-    # mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
+    PATH_TRANSFORMER = './neural_network/lastTransformer.pth'
+    transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
+    PATH_MLP_POLICY = './neural_network/lastMLP.pth'
+    mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
 
     terminated = 0
 
-    for j in range(TEST_EPISODES):
-        print("Episode: ", j)
-        state, info = env.reset(seed=int(time.perf_counter()))
-        steps = 1
-        max_reward = 0.0
-        while True:
-            actions = select_actions(state)
-            next_state, reward, terminated, truncated, _ = env.step(actions)
-            if reward > max_reward:
-                max_reward = reward
+    state, info = env.reset(seed=int(time.perf_counter()))
+    steps = 1
+    max_reward = 0.0
+    rewards = []
+    while True:
+        actions = select_actions(state)
+        next_state, reward, terminated, truncated, _ = env.step(actions)
+        if reward > max_reward:
+            max_reward = reward
+        rewards.append(reward)
 
-            if steps == 300:
-                truncated = True
-            done = terminated or truncated
+        if steps == 1200:
+            truncated = True
+        done = terminated or truncated
 
-            state = next_state
-            steps += 1
+        state = next_state
+        steps += 1
 
-            if done:
-                if terminated:
-                    terminated += 1
-                    print("Episode " + str(j) + " TERMINATED with max reward: " + str(max_reward))
-                else:
-                    print("Max reward in episode " + str(j) + ": " + str(max_reward))
-                break
+        if done:
+            break
 
     env.close()
-    print("Executed " + str(TEST_EPISODES) + " episodes:\n" + str(terminated) + " terminated\n" + str(
-        TEST_EPISODES - terminated) + " episodes completed\n")
+    print("Max reward: ", max_reward, "Mean reward: ", sum(rewards) / len(rewards))

@@ -41,7 +41,7 @@ class CruiseUAV(Cruise):
     UAV_NUMBER = 3
     STARTING_GU_NUMBER = 120
     gu_number: int
-    MINIMUM_STARTING_DISTANCE_BETWEEN_UAV = 1000 # meters
+    MINIMUM_STARTING_DISTANCE_BETWEEN_UAV = 300  # meters
     COLLISION_DISTANCE = 90  # meters
 
     SPAWN_GU_PROB = 0.0005
@@ -253,7 +253,7 @@ class CruiseUAV(Cruise):
     def calculate_reward(self, terminated: bool) -> float:
         if terminated:
             # collision or environment exit penality
-            return -0.5
+            return -1.0
         # calculate Region Coverage Ratio
         return self.gu_covered / len(self.gu)
 

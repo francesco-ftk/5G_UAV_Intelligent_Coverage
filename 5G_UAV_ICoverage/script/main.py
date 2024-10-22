@@ -20,7 +20,7 @@ from gym_cruising.neural_network.transformer_encoder_decoder import TransformerE
 
 UAV_NUMBER = 3
 
-TRAIN = True
+TRAIN = False
 EPS_START = 0.99  # the starting value of epsilon
 EPS_END = 0.4  # the final value of epsilon
 EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
@@ -113,7 +113,7 @@ if TRAIN:
         global UAV_NUMBER
         global BATCH_SIZE
 
-        if len(replay_buffer) < 9000:
+        if len(replay_buffer) < 10000:
             return
 
         transitions = replay_buffer.sample(BATCH_SIZE)
@@ -356,7 +356,7 @@ else:
             max_reward = reward
         rewards.append(reward)
 
-        if steps == 1200:
+        if steps == 300:
             truncated = True
         done = terminated or truncated
 

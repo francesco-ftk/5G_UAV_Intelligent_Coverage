@@ -42,7 +42,7 @@ if TRAIN:
 
     wandb.init(project="5G_UAV_ICoverage_Curriculum_Learning")
 
-    env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=1)
+    env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=3)
     env.action_space.seed(42)
 
     # ACTOR POLICY NET policy

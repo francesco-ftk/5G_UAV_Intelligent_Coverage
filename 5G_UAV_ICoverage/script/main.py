@@ -18,15 +18,15 @@ from gym_cruising.neural_network.MLP_policy_net import MLPPolicyNet
 from gym_cruising.neural_network.deep_Q_net import DeepQNet
 from gym_cruising.neural_network.transformer_encoder_decoder import TransformerEncoderDecoder
 
-UAV_NUMBER = 3
+UAV_NUMBER = 1
 
 TRAIN = False
 EPS_START = 0.99  # the starting value of epsilon
 EPS_END = 0.4  # the final value of epsilon
 EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
 BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
-LEARNING_RATE = 1e-5  # is the learning rate of the Adam optimizer, should decrease (1e-5)
-BETA = 0.0005  # is the update rate of the target network
+LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
+BETA = 0.005  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
 
 MAX_SPEED_UAV = 5.56  # m/s - about 20 Km/h
@@ -39,7 +39,7 @@ print("DEVICE:", device)
 
 if TRAIN:
 
-    wandb.init(project="5G_UAV_ICoverage")
+    wandb.init(project="5G_UAV_ICoverage_Curriculum_Learning")
 
     env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=1)
     env.action_space.seed(42)
@@ -113,7 +113,7 @@ if TRAIN:
         global UAV_NUMBER
         global BATCH_SIZE
 
-        if len(replay_buffer) < 10000:
+        if len(replay_buffer) < 8000:
             return
 
         transitions = replay_buffer.sample(BATCH_SIZE)
@@ -325,12 +325,8 @@ else:
         return action
 
 
-    # For accuracy check
-    # env = env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=2)
-    # TEST_EPISODES = 100
-
     # For visible check
-    env = env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=1)
+    env = env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=3)
 
     env.action_space.seed(42)
 
@@ -338,10 +334,10 @@ else:
     transformer_policy = TransformerEncoderDecoder().to(device)
     mlp_policy = MLPPolicyNet().to(device)
 
-    PATH_TRANSFORMER = './neural_network/lastTransformer.pth'
-    transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    PATH_MLP_POLICY = './neural_network/lastMLP.pth'
-    mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
+    # PATH_TRANSFORMER = './neural_network/second/secondTransformer.pth'
+    # transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
+    # PATH_MLP_POLICY = './neural_network/second/secondMLP.pth'
+    # mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
 
     terminated = 0
 
@@ -356,7 +352,7 @@ else:
             max_reward = reward
         rewards.append(reward)
 
-        if steps == 300:
+        if steps == 3000:
             truncated = True
         done = terminated or truncated
 

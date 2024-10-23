@@ -37,7 +37,7 @@ class Track(Enum):
               )
 
     # RESOLUTION = 0.25
-    TRACK3 = (2,
+    TRACK2 = (2,
               (
                   Line(Point(0, 0), Point(0, 4000)),
                   Line(Point(0, 4000), Point(4000, 4000)),
@@ -46,6 +46,19 @@ class Track(Enum):
               ),
               (
                   ((60, 3940), (60, 3940)),
+              )
+              )
+
+    # RESOLUTION = 0.3333
+    TRACK3 = (3,
+              (
+                  Line(Point(0, 0), Point(0, 3000)),
+                  Line(Point(0, 3000), Point(3000, 3000)),
+                  Line(Point(3000, 3000), Point(3000, 0)),
+                  Line(Point(3000, 0), Point(0, 0))
+              ),
+              (
+                  ((45, 2955), (45, 2955)),
               )
               )
 

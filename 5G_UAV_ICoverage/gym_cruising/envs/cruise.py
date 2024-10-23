@@ -20,7 +20,7 @@ class Cruise(Env):
     can inherit from one another and only redefine certain methods.
     """
 
-    RESOLUTION = 0.1667  # 1.0 metro => 0.1667 pixels, 0.25 pixels for track 2
+    RESOLUTION = 0.3333  # 1.0 metro => 0.1667 pixels for track 1, 0.25 pixels for track 2, 0.3333 pixels for track 3
     WIDTH = 3
     Y_OFFSET = 0
     X_OFFSET = 0
@@ -28,7 +28,7 @@ class Cruise(Env):
     track: Track
     world: Tuple[Line, ...]
 
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 1}
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 30}
 
     def __init__(self, render_mode=None, track_id: int = 1) -> None:
         self.window_size = 1000  # The size of the PyGame window

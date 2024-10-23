@@ -17,6 +17,7 @@ from gym_cruising.memory.replay_memory import ReplayMemory, Transition
 from gym_cruising.neural_network.MLP_policy_net import MLPPolicyNet
 from gym_cruising.neural_network.deep_Q_net import DeepQNet
 from gym_cruising.neural_network.transformer_encoder_decoder import TransformerEncoderDecoder
+from gym_cruising.enums.constraint import Constraint
 
 UAV_NUMBER = 1
 
@@ -104,6 +105,25 @@ if TRAIN:
                     action.append(output)
             else:
                 output = np.random.uniform(low=-1.0, high=1.0, size=2)
+                output = output * MAX_SPEED_UAV
+                action.append(output)
+        return action
+
+
+    def select_actions(state):
+        global UAV_NUMBER
+        uav_info, connected_gu_positions = np.split(state, [UAV_NUMBER * 2], axis=0)
+        uav_info = uav_info.reshape(UAV_NUMBER, 4)
+        uav_info = torch.from_numpy(uav_info).float().to(device)
+        connected_gu_positions = torch.from_numpy(connected_gu_positions).float().to(device)
+        action = []
+        with torch.no_grad():
+            tokens = transformer_policy(connected_gu_positions.unsqueeze(0), uav_info.unsqueeze(0)).squeeze(0)
+        for i in range(UAV_NUMBER):
+            with torch.no_grad():
+                # return action according to MLP [vx, vy]
+                output = mlp_policy(tokens[i])
+                output = output.cpu().numpy().reshape(2)
                 output = output * MAX_SPEED_UAV
                 action.append(output)
         return action
@@ -261,8 +281,32 @@ if TRAIN:
         deep_Q_net_target.load_state_dict(target_net_state_dict)
 
 
+    def validate():
+        reward_sum = 0.0
+        for i in range(3):
+            current_options = Constraint.CONSTRAINT30.value[i]
+            state, info = env.reset(seed=int(time.perf_counter()), options=current_options)
+            steps = 1
+            while True:
+                actions = select_actions(state)
+                next_state, reward, terminated, truncated, _ = env.step(actions)
+                reward_sum += reward
+
+                if steps == 300:
+                    truncated = True
+                done = terminated or truncated
+
+                state = next_state
+                steps += 1
+
+                if done:
+                    break
+
+        wandb.log({"reward": reward_sum})
+
+
     if torch.cuda.is_available():
-        num_episodes = 2050
+        num_episodes = 2500
     else:
         num_episodes = 100
 
@@ -272,10 +316,6 @@ if TRAIN:
         print("Episode: ", i_episode)
         state, info = env.reset(seed=int(time.perf_counter()))
         steps = 1
-        if i_episode % 500 == 0:
-            torch.save(transformer_policy.state_dict(), '../neural_network/lastTransformer.pth')
-            torch.save(mlp_policy.state_dict(), '../neural_network/lastMLP.pth')
-            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/lastDeepQ.pth')
         while True:
             actions = select_actions_epsilon(state)
             next_state, reward, terminated, truncated, _ = env.step(actions)
@@ -294,6 +334,9 @@ if TRAIN:
 
             if done:
                 break
+
+        if i_episode % 10 == 0:
+            validate()
 
     # save the policy nets
     torch.save(transformer_policy.state_dict(), '../neural_network/lastTransformer.pth')
@@ -334,12 +377,10 @@ else:
     transformer_policy = TransformerEncoderDecoder().to(device)
     mlp_policy = MLPPolicyNet().to(device)
 
-    # PATH_TRANSFORMER = './neural_network/second/secondTransformer.pth'
-    # transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    # PATH_MLP_POLICY = './neural_network/second/secondMLP.pth'
-    # mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
-
-    terminated = 0
+    PATH_TRANSFORMER = './neural_network/lastTransformer.pth'
+    transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
+    PATH_MLP_POLICY = './neural_network/lastMLP.pth'
+    mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
 
     state, info = env.reset(seed=int(time.perf_counter()))
     steps = 1
@@ -352,7 +393,7 @@ else:
             max_reward = reward
         rewards.append(reward)
 
-        if steps == 3000:
+        if steps == 900:
             truncated = True
         done = terminated or truncated
 

@@ -86,15 +86,15 @@ class CruiseUAV(Cruise):
 
     def perform_action(self, actions) -> None:
         self.move_UAV(actions)
-        # self.update_GU()
+        self.update_GU()
         self.calculate_PathLoss_with_Markov_Chain()
         self.calculate_SINR()
         self.check_connection_and_coverage_UAV_GU()
 
     def update_GU(self):
         self.move_GU()
-        self.check_if_disappear_GU()
-        self.check_if_spawn_new_GU()
+        # self.check_if_disappear_GU()
+        # self.check_if_spawn_new_GU()
 
     def move_UAV(self, actions):
         for i, uav in enumerate(self.uav):
@@ -258,8 +258,12 @@ class CruiseUAV(Cruise):
         return self.gu_covered / len(self.gu)
 
     def init_environment(self, options: Optional[dict] = None) -> None:
-        self.init_uav()
-        self.init_gu()
+        if options is None:
+            self.init_uav()
+            self.init_gu()
+        else:
+            self.init_uav_constrained(options)
+            self.init_gu_contstrained(options)
         self.calculate_PathLoss_with_Markov_Chain()
         self.calculate_SINR()
         self.check_connection_and_coverage_UAV_GU()
@@ -293,6 +297,16 @@ class CruiseUAV(Cruise):
             x_coordinate = self.np_random.uniform(area[0][0], area[0][1])
             y_coordinate = self.np_random.uniform(area[1][0], area[1][1])
             gu = GU(Point(x_coordinate, y_coordinate))
+            self.initialize_channel(gu)
+            self.gu.append(gu)
+
+    def init_uav_constrained(self, options):
+        for i in range(0, self.UAV_NUMBER):
+            self.uav.append(UAV(Point(options[str(i)][0], options[str(i)][1])))
+
+    def init_gu_contstrained(self, options):
+        for i in range(self.UAV_NUMBER, self.gu_number + 1):
+            gu = GU(Point(options[str(i)][0], options[str(i)][1]))
             self.initialize_channel(gu)
             self.gu.append(gu)
 

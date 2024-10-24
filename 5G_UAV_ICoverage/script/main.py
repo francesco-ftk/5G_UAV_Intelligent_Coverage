@@ -1,5 +1,7 @@
 import sys
 
+from numpy.f2py.f90mod_rules import options
+
 sys.path.append('/home/fantechi/tesi/5G_UAV_Intelligent_Coverage/5G_UAV_ICoverage')
 
 import time
@@ -19,11 +21,11 @@ from gym_cruising.neural_network.deep_Q_net import DeepQNet
 from gym_cruising.neural_network.transformer_encoder_decoder import TransformerEncoderDecoder
 from gym_cruising.enums.constraint import Constraint
 
-UAV_NUMBER = 1
+UAV_NUMBER = 2
 
 TRAIN = True
-EPS_START = 0.99  # the starting value of epsilon
-EPS_END = 0.4  # the final value of epsilon
+EPS_START = 0.95  # the starting value of epsilon
+EPS_END = 0.35  # the final value of epsilon
 EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
 BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
 LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
@@ -133,7 +135,7 @@ if TRAIN:
         global UAV_NUMBER
         global BATCH_SIZE
 
-        if len(replay_buffer) < 8000:
+        if len(replay_buffer) < 5000:
             return
 
         transitions = replay_buffer.sample(BATCH_SIZE)
@@ -283,9 +285,9 @@ if TRAIN:
 
     def validate():
         reward_sum = 0.0
-        for i in range(3):
-            current_options = Constraint.CONSTRAINT30.value[i]
-            state, info = env.reset(seed=int(time.perf_counter()), options=current_options)
+        seeds = [12345, 67890, 98765, 54321, 24680]
+        for i in seeds:
+            state, info = env.reset(seed=i)
             steps = 1
             while True:
                 actions = select_actions(state)
@@ -306,7 +308,7 @@ if TRAIN:
 
 
     if torch.cuda.is_available():
-        num_episodes = 2500
+        num_episodes = 2050
     else:
         num_episodes = 100
 
@@ -335,7 +337,7 @@ if TRAIN:
             if done:
                 break
 
-        if i_episode % 10 == 0:
+        if i_episode != 0 and i_episode % 50 == 0:
             validate()
 
     # save the policy nets
@@ -377,12 +379,12 @@ else:
     transformer_policy = TransformerEncoderDecoder().to(device)
     mlp_policy = MLPPolicyNet().to(device)
 
-    PATH_TRANSFORMER = './neural_network/lastTransformer.pth'
-    transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    PATH_MLP_POLICY = './neural_network/lastMLP.pth'
-    mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
+    # PATH_TRANSFORMER = './neural_network/lastTransformer.pth'
+    # transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
+    # PATH_MLP_POLICY = './neural_network/lastMLP.pth'
+    # mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
 
-    state, info = env.reset(seed=int(time.perf_counter()))
+    state, info = env.reset(seed=int(time.perf_counter()), options=Constraint.CONSTRAINT60.value)
     steps = 1
     max_reward = 0.0
     rewards = []

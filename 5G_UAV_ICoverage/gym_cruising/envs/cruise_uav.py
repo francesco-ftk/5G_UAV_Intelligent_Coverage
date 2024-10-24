@@ -38,8 +38,8 @@ class CruiseUAV(Cruise):
     pathLoss = []
     SINR = []
 
-    UAV_NUMBER = 1
-    STARTING_GU_NUMBER = 30
+    UAV_NUMBER = 2
+    STARTING_GU_NUMBER = 20
     gu_number: int
     MINIMUM_STARTING_DISTANCE_BETWEEN_UAV = 1000  # meters
     COLLISION_DISTANCE = 100  # meters
@@ -253,9 +253,9 @@ class CruiseUAV(Cruise):
     def calculate_reward(self, terminated: bool) -> float:
         if terminated:
             # collision or environment exit penality
-            return -100.0
+            return -300.0
         # calculate Region Coverage Ratio
-        return self.gu_covered / len(self.gu)
+        return self.gu_covered / len(self.gu) * 100.0
 
     def init_environment(self, options: Optional[dict] = None) -> None:
         if options is None:

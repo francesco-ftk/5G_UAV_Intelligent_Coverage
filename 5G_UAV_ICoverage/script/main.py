@@ -1,7 +1,4 @@
 import sys
-
-from numpy.f2py.f90mod_rules import options
-
 sys.path.append('/home/fantechi/tesi/5G_UAV_Intelligent_Coverage/5G_UAV_ICoverage')
 
 import time
@@ -23,18 +20,21 @@ from gym_cruising.enums.constraint import Constraint
 
 UAV_NUMBER = 2
 
-TRAIN = True
+TRAIN = False
 EPS_START = 0.95  # the starting value of epsilon
 EPS_END = 0.35  # the final value of epsilon
 EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
 BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
 LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
-BETA = 0.005  # is the update rate of the target network
+BETA = 0.001  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
 
 MAX_SPEED_UAV = 5.56  # m/s - about 20 Km/h
 
 time_steps_done = -1
+
+BEST_VALIDATION = 0.0
+EMBEDDED_DIM = 128
 
 # if gpu is to be used
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -48,11 +48,11 @@ if TRAIN:
     env.action_space.seed(42)
 
     # ACTOR POLICY NET policy
-    transformer_policy = TransformerEncoderDecoder().to(device)
-    mlp_policy = MLPPolicyNet().to(device)
+    transformer_policy = TransformerEncoderDecoder(embed_dim=EMBEDDED_DIM).to(device)
+    mlp_policy = MLPPolicyNet(token_dim=EMBEDDED_DIM).to(device)
 
     # CRITIC Q NET policy
-    deep_Q_net_policy = DeepQNet().to(device)
+    deep_Q_net_policy = DeepQNet(state_dim=EMBEDDED_DIM).to(device)
 
     # COMMENT FOR INITIAL TRAINING
     # PATH_TRANSFORMER = './neural_network/lastTransformer.pth'
@@ -63,11 +63,11 @@ if TRAIN:
     # deep_Q_net_policy.load_state_dict(torch.load(PATH_DEEP_Q))
 
     # ACTOR POLICY NET target
-    transformer_target = TransformerEncoderDecoder().to(device)
-    mlp_target = MLPPolicyNet().to(device)
+    transformer_target = TransformerEncoderDecoder(embed_dim=EMBEDDED_DIM).to(device)
+    mlp_target = MLPPolicyNet(token_dim=EMBEDDED_DIM).to(device)
 
     # CRITIC Q NET target
-    deep_Q_net_target = DeepQNet().to(device)
+    deep_Q_net_target = DeepQNet(state_dim=EMBEDDED_DIM).to(device)
 
     # set target parameters equal to main parameters
     transformer_target.load_state_dict(transformer_policy.state_dict())
@@ -284,8 +284,9 @@ if TRAIN:
 
 
     def validate():
+        global BEST_VALIDATION
         reward_sum = 0.0
-        seeds = [12345, 67890, 98765, 54321, 24680]
+        seeds = [42, 15267, 98765, 54321, 24680]
         for i in seeds:
             state, info = env.reset(seed=i)
             steps = 1
@@ -306,9 +307,16 @@ if TRAIN:
 
         wandb.log({"reward": reward_sum})
 
+        if reward_sum > BEST_VALIDATION:
+            BEST_VALIDATION = reward_sum
+            # save the best validation nets
+            torch.save(transformer_policy.state_dict(), '../neural_network/bestTransformer.pth')
+            torch.save(mlp_policy.state_dict(), '../neural_network/bestMLP.pth')
+            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/bestDeepQ.pth')
+
 
     if torch.cuda.is_available():
-        num_episodes = 2050
+        num_episodes = 700
     else:
         num_episodes = 100
 
@@ -316,7 +324,10 @@ if TRAIN:
 
     for i_episode in range(0, num_episodes, 1):
         print("Episode: ", i_episode)
-        state, info = env.reset(seed=int(time.perf_counter()))
+        options = None
+        if i_episode % 25 == 0:
+            options = Constraint.CONSTRAINT60.value
+        state, info = env.reset(seed=int(time.perf_counter()), options=options)
         steps = 1
         while True:
             actions = select_actions_epsilon(state)
@@ -340,7 +351,7 @@ if TRAIN:
         if i_episode != 0 and i_episode % 50 == 0:
             validate()
 
-    # save the policy nets
+    # save the nets
     torch.save(transformer_policy.state_dict(), '../neural_network/lastTransformer.pth')
     torch.save(mlp_policy.state_dict(), '../neural_network/lastMLP.pth')
     torch.save(deep_Q_net_policy.state_dict(), '../neural_network/lastDeepQ.pth')

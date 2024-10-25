@@ -39,7 +39,7 @@ class CruiseUAV(Cruise):
     SINR = []
 
     UAV_NUMBER = 2
-    STARTING_GU_NUMBER = 20
+    STARTING_GU_NUMBER = 60
     gu_number: int
     MINIMUM_STARTING_DISTANCE_BETWEEN_UAV = 1000  # meters
     COLLISION_DISTANCE = 100  # meters
@@ -93,8 +93,8 @@ class CruiseUAV(Cruise):
 
     def update_GU(self):
         self.move_GU()
-        # self.check_if_disappear_GU()
-        # self.check_if_spawn_new_GU()
+        self.check_if_disappear_GU()
+        self.check_if_spawn_new_GU()
 
     def move_UAV(self, actions):
         for i, uav in enumerate(self.uav):
@@ -253,16 +253,15 @@ class CruiseUAV(Cruise):
     def calculate_reward(self, terminated: bool) -> float:
         if terminated:
             # collision or environment exit penality
-            return -300.0
+            return -500.0
         # calculate Region Coverage Ratio
-        return self.gu_covered / len(self.gu) * 100.0
+        return self.gu_covered / len(self.gu) * 10.0
 
     def init_environment(self, options: Optional[dict] = None) -> None:
+        self.init_uav()
         if options is None:
-            self.init_uav()
             self.init_gu()
         else:
-            self.init_uav_constrained(options)
             self.init_gu_contstrained(options)
         self.calculate_PathLoss_with_Markov_Chain()
         self.calculate_SINR()
@@ -305,7 +304,7 @@ class CruiseUAV(Cruise):
             self.uav.append(UAV(Point(options[str(i)][0], options[str(i)][1])))
 
     def init_gu_contstrained(self, options):
-        for i in range(self.UAV_NUMBER, self.gu_number + 1):
+        for i in range(0, self.gu_number):
             gu = GU(Point(options[str(i)][0], options[str(i)][1]))
             self.initialize_channel(gu)
             self.gu.append(gu)

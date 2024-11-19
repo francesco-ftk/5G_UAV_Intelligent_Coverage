@@ -21,14 +21,14 @@ from gym_cruising.neural_network.deep_Q_net import DeepQNet
 from gym_cruising.neural_network.transformer_encoder_decoder import TransformerEncoderDecoder
 from gym_cruising.enums.constraint import Constraint
 
-UAV_NUMBER = 2
+UAV_NUMBER = 3
 
-TRAIN = False
+TRAIN = True
 EPS_START = 0.95  # the starting value of epsilon
 EPS_END = 0.35  # the final value of epsilon
 EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
 BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
-LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
+LEARNING_RATE = 1e-5  # is the learning rate of the Adam optimizer, should decrease (1e-5)
 BETA = 0.005  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
 
@@ -47,7 +47,7 @@ if TRAIN:
 
     wandb.init(project="5G_UAV_ICoverage_Curriculum_Learning")
 
-    env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=3)
+    env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=2)
     env.action_space.seed(42)
 
     # ACTOR POLICY NET policy
@@ -58,12 +58,12 @@ if TRAIN:
     deep_Q_net_policy = DeepQNet(state_dim=EMBEDDED_DIM).to(device)
 
     # COMMENT FOR INITIAL TRAINING
-    # PATH_TRANSFORMER = './neural_network/lastTransformer.pth'
-    # transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    # PATH_MLP_POLICY = './neural_network/lastMLP.pth'
-    # mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
-    # PATH_DEEP_Q = './neural_network/lastDeepQ.pth'
-    # deep_Q_net_policy.load_state_dict(torch.load(PATH_DEEP_Q))
+    PATH_TRANSFORMER = './neural_network/bestTransformer.pth'
+    transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
+    PATH_MLP_POLICY = './neural_network/bestMLP.pth'
+    mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
+    PATH_DEEP_Q = './neural_network/bestDeepQ.pth'
+    deep_Q_net_policy.load_state_dict(torch.load(PATH_DEEP_Q))
 
     # ACTOR POLICY NET target
     transformer_target = TransformerEncoderDecoder(embed_dim=EMBEDDED_DIM).to(device)
@@ -313,9 +313,9 @@ if TRAIN:
         if reward_sum > BEST_VALIDATION:
             BEST_VALIDATION = reward_sum
             # save the best validation nets
-            torch.save(transformer_policy.state_dict(), '../neural_network/bestTransformer.pth')
-            torch.save(mlp_policy.state_dict(), '../neural_network/bestMLP.pth')
-            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/bestDeepQ.pth')
+            torch.save(transformer_policy.state_dict(), '../neural_network/rewardTransformer.pth')
+            torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
+            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/rewardDeepQ.pth')
 
 
     if torch.cuda.is_available():
@@ -330,7 +330,7 @@ if TRAIN:
         options = None
         # Good example with GU in cluster
         if i_episode % 25 == 0:
-            options = Constraint.CONSTRAINT60.value
+            options = Constraint.CONSTRAINT80.value
         state, info = env.reset(seed=int(time.perf_counter()), options=options)
         steps = 1
         while True:
@@ -386,7 +386,7 @@ else:
 
 
     # For visible check
-    env = env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=3)
+    env = env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=2)
 
     env.action_space.seed(42)
 
@@ -399,7 +399,7 @@ else:
     PATH_MLP_POLICY = './neural_network/bestMLP.pth'
     mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
 
-    # options = Constraint.CONSTRAINT60.value
+    # options = Constraint.CONSTRAINT80.value
     options = None
 
     state, info = env.reset(seed=int(time.perf_counter()), options=options)

@@ -17,7 +17,7 @@ from gym_cruising.geometry.point import Point
 from gym_cruising.utils import channels_utils
 
 MAX_SPEED_UAV = 55.6  # m/s - about 20 Km/h x 10 secondi
-MAX_POSITION = 6000.0  # 4000.0
+MAX_POSITION = 3000.0
 
 
 def normalizePositions(positions: np.ndarray) -> np.ndarray:  # Normalize in [-1,1]
@@ -41,7 +41,7 @@ class CruiseUAV(Cruise):
     UAV_NUMBER = 2
     STARTING_GU_NUMBER = 60
     gu_number: int
-    MINIMUM_STARTING_DISTANCE_BETWEEN_UAV = 1000  # meters
+    MINIMUM_STARTING_DISTANCE_BETWEEN_UAV = 100  # meters
     COLLISION_DISTANCE = 30  # meters
 
     SPAWN_GU_PROB = 0.0005
@@ -57,6 +57,8 @@ class CruiseUAV(Cruise):
     high_observation: float
 
     gu_covered = 0
+    last_RCR = None
+    reward_gamma = 0.5
 
     def __init__(self,
                  render_mode=None, track_id: int = 1) -> None:
@@ -253,9 +255,15 @@ class CruiseUAV(Cruise):
     def calculate_reward(self, terminated: bool) -> float:
         if terminated:
             # collision or environment exit penality
-            return -500.0
+            return -100.0
         # calculate Region Coverage Ratio
-        return self.gu_covered / len(self.gu) * 10.0
+        current_RCR = self.gu_covered / len(self.gu)
+        if self.last_RCR is None:
+            self.last_RCR = current_RCR
+            return current_RCR * 10.0
+        delta_RCR_smorzato = self.reward_gamma * (current_RCR - self.last_RCR)
+        self.last_RCR = current_RCR
+        return (current_RCR + delta_RCR_smorzato) * 10.0
 
     def init_environment(self, options: Optional[dict] = None) -> None:
         if options is None:

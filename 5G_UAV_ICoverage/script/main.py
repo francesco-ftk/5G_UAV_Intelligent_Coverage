@@ -1,4 +1,7 @@
 import sys
+
+from sympy.stats.sampling.sample_numpy import numpy
+
 sys.path.append('/home/fantechi/tesi/5G_UAV_Intelligent_Coverage/5G_UAV_ICoverage')
 
 import time
@@ -20,7 +23,7 @@ from gym_cruising.enums.constraint import Constraint
 
 UAV_NUMBER = 2
 
-TRAIN = False
+TRAIN = True
 EPS_START = 0.95  # the starting value of epsilon
 EPS_END = 0.35  # the final value of epsilon
 EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
@@ -34,7 +37,7 @@ MAX_SPEED_UAV = 55.6  # m/s - about 20 Km/h x 10 secondi
 time_steps_done = -1
 
 BEST_VALIDATION = 0.0
-EMBEDDED_DIM = 16
+EMBEDDED_DIM = 32
 
 # if gpu is to be used
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -316,7 +319,7 @@ if TRAIN:
 
 
     if torch.cuda.is_available():
-        num_episodes = 700
+        num_episodes = 1500
     else:
         num_episodes = 100
 
@@ -325,6 +328,7 @@ if TRAIN:
     for i_episode in range(0, num_episodes, 1):
         print("Episode: ", i_episode)
         options = None
+        # Good example with GU in cluster
         if i_episode % 25 == 0:
             options = Constraint.CONSTRAINT60.value
         state, info = env.reset(seed=int(time.perf_counter()), options=options)
@@ -348,7 +352,7 @@ if TRAIN:
             if done:
                 break
 
-        if i_episode != 0 and i_episode % 50 == 0:
+        if i_episode != 0 and i_episode % 100 == 0:
             validate()
 
     # save the nets
@@ -390,12 +394,15 @@ else:
     transformer_policy = TransformerEncoderDecoder(embed_dim=EMBEDDED_DIM).to(device)
     mlp_policy = MLPPolicyNet(token_dim=EMBEDDED_DIM).to(device)
 
-    PATH_TRANSFORMER = './neural_network/lastTransformer.pth'
-    transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    PATH_MLP_POLICY = './neural_network/lastMLP.pth'
-    mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
+    # PATH_TRANSFORMER = './neural_network/lastTransformer.pth'
+    # transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
+    # PATH_MLP_POLICY = './neural_network/lastMLP.pth'
+    # mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
 
-    state, info = env.reset(seed=int(time.perf_counter()), options=Constraint.CONSTRAINT60.value)
+    # options = Constraint.CONSTRAINT60.value
+    options = None
+
+    state, info = env.reset(seed=int(time.perf_counter()), options=options)
     steps = 1
     max_reward = 0.0
     rewards = []

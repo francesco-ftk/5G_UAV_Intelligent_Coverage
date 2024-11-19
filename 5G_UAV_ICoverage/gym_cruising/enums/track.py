@@ -10,13 +10,14 @@ class Track(Enum):
     # pylint: disable=invalid-name
     walls: Tuple[Line, ...]
     spawn_area: Tuple[Tuple[Tuple[float, float], Tuple[float, float]], ...]
+
     # pylint: enable=invalid-name
 
     def __new__(cls,
                 value: int,
                 walls: Tuple[Line, ...] = (),
                 spawn_area: Tuple[Tuple[Tuple[float, float],
-                                        Tuple[float, float]], ...] = ()):
+                Tuple[float, float]], ...] = ()):
         obj = object.__new__(cls)
         obj._value_ = value
         obj.walls = walls
@@ -59,6 +60,19 @@ class Track(Enum):
               ),
               (
                   ((45, 2955), (45, 2955)),
+              )
+              )
+
+    # RESOLUTION = 0.50
+    TRACK4 = (4,
+              (
+                  Line(Point(0, 0), Point(0, 2000)),
+                  Line(Point(0, 2000), Point(2000, 2000)),
+                  Line(Point(2000, 2000), Point(2000, 0)),
+                  Line(Point(2000, 0), Point(0, 0))
+              ),
+              (
+                  ((30, 1970), (30, 1970)),
               )
               )
 

@@ -26,15 +26,15 @@ EPS_END = 0.35  # the final value of epsilon
 EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
 BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
 LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
-BETA = 0.001  # is the update rate of the target network
+BETA = 0.005  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
 
-MAX_SPEED_UAV = 5.56  # m/s - about 20 Km/h
+MAX_SPEED_UAV = 55.6  # m/s - about 20 Km/h x 10 secondi
 
 time_steps_done = -1
 
 BEST_VALIDATION = 0.0
-EMBEDDED_DIM = 128
+EMBEDDED_DIM = 16
 
 # if gpu is to be used
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

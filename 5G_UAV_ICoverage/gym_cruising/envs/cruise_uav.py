@@ -16,7 +16,7 @@ from gym_cruising.envs.cruise import Cruise
 from gym_cruising.geometry.point import Point
 from gym_cruising.utils import channels_utils
 
-MAX_SPEED_UAV = 5.56  # m/s - about 20 Km/h
+MAX_SPEED_UAV = 55.6  # m/s - about 20 Km/h x 10 secondi
 MAX_POSITION = 6000.0  # 4000.0
 
 
@@ -42,14 +42,14 @@ class CruiseUAV(Cruise):
     STARTING_GU_NUMBER = 60
     gu_number: int
     MINIMUM_STARTING_DISTANCE_BETWEEN_UAV = 1000  # meters
-    COLLISION_DISTANCE = 100  # meters
+    COLLISION_DISTANCE = 30  # meters
 
     SPAWN_GU_PROB = 0.0005
     disappear_gu_prob: float
 
     GU_MEAN_SPEED = 5.56  # 5.56 m/s
     GU_STANDARD_DEVIATION = 1.97  # va a 0 a circa 3 volte la deviazione standard
-    MAX_SPEED_UAV = 5.56  # m/s - about 20 Km/h
+    MAX_SPEED_UAV = 55.6  # m/s - about 20 Km/h x 10 secondi
 
     COVERED_TRESHOLD = 10.0  # dB
 
@@ -258,11 +258,12 @@ class CruiseUAV(Cruise):
         return self.gu_covered / len(self.gu) * 10.0
 
     def init_environment(self, options: Optional[dict] = None) -> None:
-        self.init_uav()
         if options is None:
+            self.init_uav()
             self.init_gu()
         else:
-            self.init_gu_contstrained(options)
+            self.init_uav_constrained(options[0])
+            self.init_gu_contstrained(options[1])
         self.calculate_PathLoss_with_Markov_Chain()
         self.calculate_SINR()
         self.check_connection_and_coverage_UAV_GU()

@@ -23,7 +23,7 @@ from gym_cruising.enums.constraint import Constraint
 
 UAV_NUMBER = 2
 
-TRAIN = True
+TRAIN = False
 EPS_START = 0.95  # the starting value of epsilon
 EPS_END = 0.35  # the final value of epsilon
 EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
@@ -394,10 +394,10 @@ else:
     transformer_policy = TransformerEncoderDecoder(embed_dim=EMBEDDED_DIM).to(device)
     mlp_policy = MLPPolicyNet(token_dim=EMBEDDED_DIM).to(device)
 
-    # PATH_TRANSFORMER = './neural_network/lastTransformer.pth'
-    # transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    # PATH_MLP_POLICY = './neural_network/lastMLP.pth'
-    # mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
+    PATH_TRANSFORMER = './neural_network/bestTransformer.pth'
+    transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
+    PATH_MLP_POLICY = './neural_network/bestMLP.pth'
+    mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
 
     # options = Constraint.CONSTRAINT60.value
     options = None

@@ -58,7 +58,7 @@ class CruiseUAV(Cruise):
 
     gu_covered = 0
     last_RCR = None
-    reward_gamma = 0.5
+    reward_gamma = 0.7
 
     def __init__(self,
                  render_mode=None, track_id: int = 1) -> None:

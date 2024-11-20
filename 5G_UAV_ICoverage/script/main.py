@@ -58,11 +58,11 @@ if TRAIN:
     deep_Q_net_policy = DeepQNet(state_dim=EMBEDDED_DIM).to(device)
 
     # COMMENT FOR INITIAL TRAINING
-    PATH_TRANSFORMER = './neural_network/bestTransformer.pth'
+    PATH_TRANSFORMER = '../neural_network/bestTransformer.pth'
     transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    PATH_MLP_POLICY = './neural_network/bestMLP.pth'
+    PATH_MLP_POLICY = '../neural_network/bestMLP.pth'
     mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
-    PATH_DEEP_Q = './neural_network/bestDeepQ.pth'
+    PATH_DEEP_Q = '../neural_network/bestDeepQ.pth'
     deep_Q_net_policy.load_state_dict(torch.load(PATH_DEEP_Q))
 
     # ACTOR POLICY NET target

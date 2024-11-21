@@ -273,7 +273,7 @@ class CruiseUAV(Cruise):
     def calculate_reward(self, terminated: bool) -> float:
         if terminated:
             # collision or environment exit penality
-            return -200.0
+            return -300.0
 
         # calculate Region Coverage Ratio with window mean
         current_RCR = self.gu_covered / len(self.gu)

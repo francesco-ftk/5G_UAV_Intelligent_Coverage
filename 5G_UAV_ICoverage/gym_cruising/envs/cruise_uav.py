@@ -17,7 +17,7 @@ from gym_cruising.geometry.point import Point
 from gym_cruising.utils import channels_utils
 
 MAX_SPEED_UAV = 55.6  # m/s - about 20 Km/h x 10 secondi
-MAX_POSITION = 4000.0
+MAX_POSITION = 3000.0
 
 
 def normalizePositions(positions: np.ndarray) -> np.ndarray:  # Normalize in [-1,1]
@@ -43,7 +43,7 @@ class CruiseUAV(Cruise):
     beta = 0.3  # old rewards weight
 
     UAV_NUMBER = 2
-    STARTING_GU_NUMBER = 80
+    STARTING_GU_NUMBER = 60
     gu_number: int
     MINIMUM_STARTING_DISTANCE_BETWEEN_UAV = 100  # meters
     COLLISION_DISTANCE = 30  # meters
@@ -257,38 +257,38 @@ class CruiseUAV(Cruise):
     def check_if_truncated(self) -> bool:
         return False
 
+    def calculate_reward(self, terminated: bool) -> float:
+        if terminated:
+            # collision or environment exit penality
+            return -100.0
+        # calculate Region Coverage Ratio with last reward
+        current_RCR = self.gu_covered / len(self.gu)
+        if self.last_RCR is None:
+            self.last_RCR = current_RCR
+            return current_RCR * 10.0
+        delta_RCR_smorzato = self.reward_gamma * (current_RCR - self.last_RCR)
+        self.last_RCR = current_RCR
+        return (current_RCR + delta_RCR_smorzato) * 10.0
+
     # def calculate_reward(self, terminated: bool) -> float:
     #     if terminated:
     #         # collision or environment exit penality
     #         return -100.0
-    #     # calculate Region Coverage Ratio with last reward
+    #
+    #     # calculate Region Coverage Ratio with window mean
     #     current_RCR = self.gu_covered / len(self.gu)
-    #     if self.last_RCR is None:
-    #         self.last_RCR = current_RCR
-    #         return current_RCR * 10.0
-    #     delta_RCR_smorzato = self.reward_gamma * (current_RCR - self.last_RCR)
-    #     self.last_RCR = current_RCR
-    #     return (current_RCR + delta_RCR_smorzato) * 10.0
-
-    def calculate_reward(self, terminated: bool) -> float:
-        if terminated:
-            # collision or environment exit penality
-            return -300.0
-
-        # calculate Region Coverage Ratio with window mean
-        current_RCR = self.gu_covered / len(self.gu)
-
-        if len(self.reward_window) > 0:
-            mean_RCR = sum(self.reward_window) / len(self.reward_window)
-        else:
-            mean_RCR = 0
-        delta_RCR = current_RCR - mean_RCR
-
-        self.reward_window.append(current_RCR)
-        if len(self.reward_window) > self.length_window:
-            self.reward_window.pop(0)
-
-        return (self.alpha * current_RCR + self.beta * delta_RCR) * 100.0
+    #
+    #     if len(self.reward_window) > 0:
+    #         mean_RCR = sum(self.reward_window) / len(self.reward_window)
+    #     else:
+    #         mean_RCR = 0
+    #     delta_RCR = current_RCR - mean_RCR
+    #
+    #     self.reward_window.append(current_RCR)
+    #     if len(self.reward_window) > self.length_window:
+    #         self.reward_window.pop(0)
+    #
+    #     return (self.alpha * current_RCR + self.beta * delta_RCR) * 10.0
 
     def init_environment(self, options: Optional[dict] = None) -> None:
         if options is None:

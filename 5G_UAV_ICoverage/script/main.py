@@ -21,10 +21,10 @@ from gym_cruising.neural_network.deep_Q_net import DeepQNet
 from gym_cruising.neural_network.transformer_encoder_decoder import TransformerEncoderDecoder
 from gym_cruising.enums.constraint import Constraint
 
-UAV_NUMBER = 3
+UAV_NUMBER = 2
 
 TRAIN = True
-EPS_START = 0.8  # the starting value of epsilon
+EPS_START = 0.75  # the starting value of epsilon
 EPS_END = 0.35  # the final value of epsilon
 EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
 BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
@@ -313,9 +313,9 @@ if TRAIN:
         if reward_sum > BEST_VALIDATION:
             BEST_VALIDATION = reward_sum
             # save the best validation nets
-            torch.save(transformer_policy.state_dict(), '../neural_network/rewardTransformer.pth')
-            torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
-            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/rewardDeepQ.pth')
+            torch.save(transformer_policy.state_dict(), '../neural_network/4000_3_80/rewardTransformer.pth')
+            torch.save(mlp_policy.state_dict(), '../neural_network/4000_3_80/rewardMLP.pth')
+            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/4000_3_80/rewardDeepQ.pth')
 
 
     if torch.cuda.is_available():
@@ -330,7 +330,7 @@ if TRAIN:
         options = None
         # Good example with GU in cluster
         if i_episode % 25 == 0:
-            options = Constraint.CONSTRAINT80.value
+            options = Constraint.CONSTRAINT802.value
         state, info = env.reset(seed=int(time.perf_counter()), options=options)
         steps = 1
         while True:
@@ -394,13 +394,13 @@ else:
     transformer_policy = TransformerEncoderDecoder(embed_dim=EMBEDDED_DIM).to(device)
     mlp_policy = MLPPolicyNet(token_dim=EMBEDDED_DIM).to(device)
 
-    PATH_TRANSFORMER = './neural_network/rewardTransformer.pth'
+    PATH_TRANSFORMER = './neural_network/bestTransformer.pth'
     transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    PATH_MLP_POLICY = './neural_network/rewardMLP.pth'
+    PATH_MLP_POLICY = './neural_network/bestMLP.pth'
     mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
 
-    options = Constraint.CONSTRAINT80.value
-    # ptions = None
+    # options = Constraint.CONSTRAINT802.value
+    options = None
 
     state, info = env.reset(seed=int(time.perf_counter()), options=options)
     steps = 1

@@ -37,8 +37,12 @@ class CruiseUAV(Cruise):
     gu = []
     pathLoss = []
     SINR = []
+    reward_window = []
+    length_window = 5
+    alpha = 0.7  # current reward weight
+    beta = 0.3  # old rewards weight
 
-    UAV_NUMBER = 3
+    UAV_NUMBER = 2
     STARTING_GU_NUMBER = 80
     gu_number: int
     MINIMUM_STARTING_DISTANCE_BETWEEN_UAV = 100  # meters
@@ -81,6 +85,7 @@ class CruiseUAV(Cruise):
     def reset(self, seed=None, options=None) -> Tuple[np.ndarray, dict]:
         self.uav = []
         self.gu = []
+        self.reward_window = []
         self.gu_number = self.STARTING_GU_NUMBER
         self.disappear_gu_prob = self.SPAWN_GU_PROB * 4 / self.gu_number
         self.gu_covered = 0
@@ -252,18 +257,38 @@ class CruiseUAV(Cruise):
     def check_if_truncated(self) -> bool:
         return False
 
+    # def calculate_reward(self, terminated: bool) -> float:
+    #     if terminated:
+    #         # collision or environment exit penality
+    #         return -100.0
+    #     # calculate Region Coverage Ratio with last reward
+    #     current_RCR = self.gu_covered / len(self.gu)
+    #     if self.last_RCR is None:
+    #         self.last_RCR = current_RCR
+    #         return current_RCR * 10.0
+    #     delta_RCR_smorzato = self.reward_gamma * (current_RCR - self.last_RCR)
+    #     self.last_RCR = current_RCR
+    #     return (current_RCR + delta_RCR_smorzato) * 10.0
+
     def calculate_reward(self, terminated: bool) -> float:
         if terminated:
             # collision or environment exit penality
             return -100.0
-        # calculate Region Coverage Ratio
+
+        # calculate Region Coverage Ratio with window mean
         current_RCR = self.gu_covered / len(self.gu)
-        if self.last_RCR is None:
-            self.last_RCR = current_RCR
-            return current_RCR * 10.0
-        delta_RCR_smorzato = self.reward_gamma * (current_RCR - self.last_RCR)
-        self.last_RCR = current_RCR
-        return (current_RCR + delta_RCR_smorzato) * 10.0
+
+        if len(self.reward_window) > 0:
+            mean_RCR = sum(self.reward_window) / len(self.reward_window)
+        else:
+            mean_RCR = 0
+        delta_RCR = current_RCR - mean_RCR
+
+        self.reward_window.append(current_RCR)
+        if len(self.reward_window) > self.length_window:
+            self.reward_window.pop(0)
+
+        return (self.alpha * current_RCR + self.beta * delta_RCR) * 10.0
 
     def init_environment(self, options: Optional[dict] = None) -> None:
         if options is None:

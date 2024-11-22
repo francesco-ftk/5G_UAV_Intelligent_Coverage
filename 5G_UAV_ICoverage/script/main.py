@@ -23,17 +23,12 @@ from gym_cruising.neural_network.transformer_encoder_decoder import TransformerE
 UAV_NUMBER = 2
 
 TRAIN = True
-EPS_START = 0.95  # the starting value of epsilon
-EPS_END = 0.35  # the final value of epsilon
-EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay TODO anche 200000
 BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
 LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
 BETA = 0.005  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
 
 MAX_SPEED_UAV = 55.6  # m/s - about 20 Km/h x 10 secondi
-
-time_steps_done = -1
 
 BEST_VALIDATION = 0.0
 EMBEDDED_DIM = 32
@@ -84,7 +79,6 @@ if TRAIN:
 
 
     def select_actions_epsilon(state):
-        global time_steps_done
         global UAV_NUMBER
         uav_info, connected_gu_positions = np.split(state, [UAV_NUMBER * 2], axis=0)
         uav_info = uav_info.reshape(UAV_NUMBER, 4)
@@ -93,22 +87,14 @@ if TRAIN:
         action = []
         with torch.no_grad():
             tokens = transformer_policy(connected_gu_positions.unsqueeze(0), uav_info.unsqueeze(0)).squeeze(0)
-        time_steps_done += 1
-        eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1.0 * time_steps_done / EPS_DECAY)
         for i in range(UAV_NUMBER):
-            sample = random.random()
-            if sample > eps_threshold:
-                with torch.no_grad():
-                    # return action according to MLP [vx, vy]
-                    output = mlp_policy(tokens[i])
-                    output = output + torch.randn(2).to(
-                        device)
-                    output = torch.clip(output, -1.0, 1.0)
-                    output = output.cpu().numpy().reshape(2)
-                    output = output * MAX_SPEED_UAV
-                    action.append(output)
-            else:
-                output = np.random.uniform(low=-1.0, high=1.0, size=2)
+            with torch.no_grad():
+                # return action according to MLP [vx, vy] + epsilon noise
+                output = mlp_policy(tokens[i])
+                output = output + torch.randn(2).to(
+                    device)
+                output = torch.clip(output, -1.0, 1.0)
+                output = output.cpu().numpy().reshape(2)
                 output = output * MAX_SPEED_UAV
                 action.append(output)
         return action
@@ -118,7 +104,7 @@ if TRAIN:
         global UAV_NUMBER
         global BATCH_SIZE
 
-        if len(replay_buffer) < 1000:
+        if len(replay_buffer) < 2000:
             return
 
         transitions = replay_buffer.sample(BATCH_SIZE)
@@ -192,8 +178,8 @@ if TRAIN:
                 current_batch_tensor_tokens_next_states_target = tokens_batch_next_states_target[:, i:i + 1, :].squeeze(
                     1)
                 output_batch = mlp_target(current_batch_tensor_tokens_next_states_target)
-                output_batch = output_batch + torch.randn(BATCH_SIZE, 2).to(device)
-                output_batch = torch.clip(output_batch, -1.0, 1.0)
+                # output_batch = output_batch + torch.randn(BATCH_SIZE, 2).to(device) TODO levate
+                # output_batch = torch.clip(output_batch, -1.0, 1.0) TODO levate
                 output_batch = output_batch * MAX_SPEED_UAV  # actions batch for UAV i-th [BATCH_SIZE, 2]
                 current_y_batch = rewards_batch + GAMMA * (1.0 - terminated_batch) * deep_Q_net_target(
                     current_batch_tensor_tokens_next_states_target, output_batch)
@@ -213,8 +199,8 @@ if TRAIN:
             # slice i-th UAV's tokens [BATCH_SIZE, 1, 16]
             current_batch_tensor_tokens_states_target = tokens_batch_states_target[:, i:i + 1, :].squeeze(1)
             output_batch = mlp_policy(current_batch_tensor_tokens_states_target)
-            output_batch = output_batch + torch.randn(BATCH_SIZE, 2).to(device)
-            output_batch = torch.clip(output_batch, -1.0, 1.0)
+            # output_batch = output_batch + torch.randn(BATCH_SIZE, 2).to(device) TODO levate
+            # output_batch = torch.clip(output_batch, -1.0, 1.0) TODO levate
             output_batch = output_batch * MAX_SPEED_UAV  # actions batch for UAV i-th [BATCH_SIZE, 2]
             Q_values_batch = deep_Q_net_policy(current_batch_tensor_tokens_states_target, output_batch)
             loss_policy += -Q_values_batch.mean()

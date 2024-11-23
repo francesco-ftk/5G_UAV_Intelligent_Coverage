@@ -85,6 +85,28 @@ if TRAIN:
 
 
     def select_actions_epsilon(state):
+        global UAV_NUMBER
+        uav_info, connected_gu_positions = np.split(state, [UAV_NUMBER * 2], axis=0)
+        uav_info = uav_info.reshape(UAV_NUMBER, 4)
+        uav_info = torch.from_numpy(uav_info).float().to(device)
+        connected_gu_positions = torch.from_numpy(connected_gu_positions).float().to(device)
+        action = []
+        with torch.no_grad():
+            tokens = transformer_policy(connected_gu_positions.unsqueeze(0), uav_info.unsqueeze(0)).squeeze(0)
+        for i in range(UAV_NUMBER):
+            with torch.no_grad():
+                # return action according to MLP [vx, vy] + epsilon noise
+                output = mlp_policy(tokens[i])
+                output = output + torch.randn(2).to(
+                    device)
+                output = torch.clip(output, -1.0, 1.0)
+                output = output.cpu().numpy().reshape(2)
+                output = output * MAX_SPEED_UAV
+                action.append(output)
+        return action
+
+
+    def select_actions_epsilon_greedy(state):
         global time_steps_done
         global UAV_NUMBER
         uav_info, connected_gu_positions = np.split(state, [UAV_NUMBER * 2], axis=0)
@@ -100,7 +122,7 @@ if TRAIN:
             sample = random.random()
             if sample > eps_threshold:
                 with torch.no_grad():
-                    # return action according to MLP [vx, vy]
+                    # return action according to MLP [vx, vy] + epsilon noise
                     output = mlp_policy(tokens[i])
                     output = output + torch.randn(2).to(
                         device)

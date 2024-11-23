@@ -42,8 +42,8 @@ class CruiseUAV(Cruise):
     alpha = 0.7  # current reward weight
     beta = 0.3  # old rewards weight
 
-    UAV_NUMBER = 2
-    STARTING_GU_NUMBER = 60
+    UAV_NUMBER = 1
+    STARTING_GU_NUMBER = 20
     gu_number: int
     MINIMUM_STARTING_DISTANCE_BETWEEN_UAV = 100  # meters
     COLLISION_DISTANCE = 30  # meters
@@ -93,7 +93,7 @@ class CruiseUAV(Cruise):
 
     def perform_action(self, actions) -> None:
         self.move_UAV(actions)
-        self.update_GU()
+        # self.update_GU()
         self.calculate_PathLoss_with_Markov_Chain()
         self.calculate_SINR()
         self.check_connection_and_coverage_UAV_GU()
@@ -229,11 +229,11 @@ class CruiseUAV(Cruise):
                                     axis=0)
 
         for gu in self.gu:
-            if gu.covered:
-                observation = np.append(observation,
-                                        [normalizePositions(
-                                            np.array([gu.position.x_coordinate, gu.position.y_coordinate]))],
-                                        axis=0)
+            # if gu.covered: TODO scommentare
+            observation = np.append(observation,
+                                    [normalizePositions(
+                                        np.array([gu.position.x_coordinate, gu.position.y_coordinate]))],
+                                    axis=0)
         return observation
 
     def check_if_terminated(self) -> bool:

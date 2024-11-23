@@ -141,7 +141,7 @@ if TRAIN:
         global UAV_NUMBER
         global BATCH_SIZE
 
-        if len(replay_buffer) < 2000:
+        if len(replay_buffer) < 3000:
             return
 
         transitions = replay_buffer.sample(BATCH_SIZE)
@@ -309,7 +309,7 @@ if TRAIN:
             done = terminated or truncated
 
             # Store the transition in memory
-            if len(replay_buffer) < 2000:
+            if len(replay_buffer) < 3000:
                 replay_buffer.push(state, actions, next_state, reward, int(terminated))
             # Move to the next state
             state = next_state
@@ -320,6 +320,11 @@ if TRAIN:
             if done:
                 break
 
+    # save the nets
+    torch.save(transformer_policy.state_dict(), '../neural_network/lastTransformer.pth')
+    torch.save(mlp_policy.state_dict(), '../neural_network/lastMLP.pth')
+    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/lastDeepQ.pth')
+    
     wandb.finish()
     env.close()
     print('TRAINING OVERFITTING COMPLETE')

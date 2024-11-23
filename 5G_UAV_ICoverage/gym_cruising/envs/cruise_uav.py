@@ -43,7 +43,7 @@ class CruiseUAV(Cruise):
     beta = 0.3  # old rewards weight
 
     UAV_NUMBER = 1
-    STARTING_GU_NUMBER = 20
+    STARTING_GU_NUMBER = 30
     gu_number: int
     MINIMUM_STARTING_DISTANCE_BETWEEN_UAV = 100  # meters
     COLLISION_DISTANCE = 30  # meters

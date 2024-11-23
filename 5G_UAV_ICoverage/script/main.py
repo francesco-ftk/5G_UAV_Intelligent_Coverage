@@ -2,8 +2,6 @@ import sys
 
 from sympy.stats.sampling.sample_numpy import numpy
 
-from gym_cruising.enums.constraint import Constraint
-
 sys.path.append('/home/fantechi/tesi/5G_UAV_Intelligent_Coverage/5G_UAV_ICoverage')
 
 import time
@@ -21,10 +19,11 @@ from gym_cruising.memory.replay_memory import ReplayMemory, Transition
 from gym_cruising.neural_network.MLP_policy_net import MLPPolicyNet
 from gym_cruising.neural_network.deep_Q_net import DeepQNet
 from gym_cruising.neural_network.transformer_encoder_decoder import TransformerEncoderDecoder
+from gym_cruising.enums.constraint import Constraint
 
 UAV_NUMBER = 1
 
-TRAIN = False
+TRAIN = True
 EPS_START = 0.95  # the starting value of epsilon
 EPS_END = 0.35  # the final value of epsilon
 EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
@@ -298,7 +297,7 @@ if TRAIN:
     for i_episode in range(0, num_episodes, 1):
         print("Episode: ", i_episode)
         # options = None
-        options = Constraint.CONSTRAINT20
+        options = Constraint.CONSTRAINT20.value
         state, info = env.reset(seed=int(time.perf_counter()), options=options)
         steps = 1
         while True:
@@ -360,7 +359,7 @@ else:
     PATH_MLP_POLICY = './neural_network/bestMLP.pth'
     mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
 
-    options = Constraint.CONSTRAINT20
+    options = Constraint.CONSTRAINT20.value
 
     state, info = env.reset(seed=int(time.perf_counter()), options=options)
     steps = 1

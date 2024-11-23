@@ -212,8 +212,6 @@ if TRAIN:
                 current_batch_tensor_tokens_next_states_target = tokens_batch_next_states_target[:, i:i + 1, :].squeeze(
                     1)
                 output_batch = mlp_target(current_batch_tensor_tokens_next_states_target)
-                output_batch = output_batch + torch.randn(BATCH_SIZE, 2).to(device)
-                output_batch = torch.clip(output_batch, -1.0, 1.0)
                 output_batch = output_batch * MAX_SPEED_UAV  # actions batch for UAV i-th [BATCH_SIZE, 2]
                 current_y_batch = rewards_batch + GAMMA * (1.0 - terminated_batch) * deep_Q_net_target(
                     current_batch_tensor_tokens_next_states_target, output_batch)
@@ -233,8 +231,6 @@ if TRAIN:
             # slice i-th UAV's tokens [BATCH_SIZE, 1, 16]
             current_batch_tensor_tokens_states_target = tokens_batch_states_target[:, i:i + 1, :].squeeze(1)
             output_batch = mlp_policy(current_batch_tensor_tokens_states_target)
-            output_batch = output_batch + torch.randn(BATCH_SIZE, 2).to(device)
-            output_batch = torch.clip(output_batch, -1.0, 1.0)
             output_batch = output_batch * MAX_SPEED_UAV  # actions batch for UAV i-th [BATCH_SIZE, 2]
             Q_values_batch = deep_Q_net_policy(current_batch_tensor_tokens_states_target, output_batch)
             loss_policy += -Q_values_batch.mean()

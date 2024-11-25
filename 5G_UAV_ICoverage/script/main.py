@@ -143,7 +143,7 @@ if TRAIN:
         global UAV_NUMBER
         global BATCH_SIZE
 
-        if len(replay_buffer) < 3000:
+        if len(replay_buffer) < 5000:
             return
 
         transitions = replay_buffer.sample(BATCH_SIZE)
@@ -314,8 +314,8 @@ if TRAIN:
             done = terminated or truncated
 
             # Store the transition in memory
-            if len(replay_buffer) < 3000:
-                replay_buffer.push(state, actions, next_state, reward, int(terminated))
+            # if len(replay_buffer) < 3000:
+            replay_buffer.push(state, actions, next_state, reward, int(terminated))
             # Move to the next state
             state = next_state
             # Perform one step of the optimization
@@ -327,8 +327,8 @@ if TRAIN:
 
     # save the nets
     # torch.save(transformer_policy.state_dict(), '../neural_network/rewardTransformer.pth')
-    torch.save(mlp_policy.state_dict(), '../neural_network/lastMLP.pth')
-    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/lastDeepQ.pth')
+    torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
+    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/rewardDeepQ.pth')
     
     wandb.finish()
     env.close()

@@ -374,7 +374,7 @@ if TRAIN:
 
     # save the nets
     # torch.save(transformer_policy.state_dict(), '../neural_network/rewardTransformer.pth')
-    torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
+    torch.save(mlp_policy.state_dict(), '../neural_network/lastMLP.pth')
     
     wandb.finish()
     env.close()

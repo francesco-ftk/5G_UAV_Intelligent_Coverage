@@ -291,6 +291,51 @@ if TRAIN:
                     1 - BETA)
         deep_Q_net_target.load_state_dict(target_net_state_dict)
 
+    def select_actions(state):
+        global UAV_NUMBER
+        # uav_info, connected_gu_positions = np.split(state, [UAV_NUMBER * 2], axis=0)
+        # uav_info = uav_info.reshape(UAV_NUMBER, 4)
+        # uav_info = torch.from_numpy(uav_info).float().to(device)
+        # connected_gu_positions = torch.from_numpy(connected_gu_positions).float().to(device)
+        action = []
+        # with torch.no_grad():
+        #     tokens = transformer_policy(connected_gu_positions.unsqueeze(0), uav_info.unsqueeze(0)).squeeze(0)
+        state_tensor = torch.from_numpy(state).to(device)
+        state_tensor = state_tensor.view(1, 64).to(torch.float32)
+        for i in range(UAV_NUMBER):
+            with torch.no_grad():
+                # return action according to MLP [vx, vy]
+                output = mlp_policy(state_tensor)
+                output = output.cpu().numpy().reshape(2)
+                output = output * MAX_SPEED_UAV
+                action.append(output)
+        return action
+
+    def validate():
+        global BEST_VALIDATION
+        reward_sum = 0.0
+        options = Constraint.CONSTRAINT20.value
+        state, info = env.reset(seed=int(time.perf_counter()), options=options)
+        steps = 1
+        while True:
+            actions = select_actions(state)
+            next_state, reward, terminated, truncated, _ = env.step(actions)
+            reward_sum += reward
+            if steps == 300:
+                truncated = True
+            done = terminated or truncated
+            state = next_state
+            steps += 1
+            if done:
+                break
+
+        wandb.log({"reward": reward_sum})
+
+        if reward_sum > BEST_VALIDATION:
+            BEST_VALIDATION = reward_sum
+            # save the best validation nets
+            torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
+
 
     if torch.cuda.is_available():
         num_episodes = 1500
@@ -325,10 +370,11 @@ if TRAIN:
             if done:
                 break
 
+        validate()
+
     # save the nets
     # torch.save(transformer_policy.state_dict(), '../neural_network/rewardTransformer.pth')
     torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
-    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/rewardDeepQ.pth')
     
     wandb.finish()
     env.close()
@@ -368,7 +414,7 @@ else:
 
     # PATH_TRANSFORMER = './neural_network/bestTransformer.pth'
     # transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    PATH_MLP_POLICY = './neural_network/bestMLP.pth'
+    PATH_MLP_POLICY = './neural_network/rewardMLP.pth'
     mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
 
     options = Constraint.CONSTRAINT20.value

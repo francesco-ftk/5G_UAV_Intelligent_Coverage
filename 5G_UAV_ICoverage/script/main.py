@@ -23,7 +23,7 @@ from gym_cruising.enums.constraint import Constraint
 
 UAV_NUMBER = 2
 
-TRAIN = False
+TRAIN = True
 EPS_START = 0.95  # the starting value of epsilon
 EPS_END = 0.35  # the final value of epsilon
 EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
@@ -58,12 +58,12 @@ if TRAIN:
     deep_Q_net_policy = DeepQNet(state_dim=EMBEDDED_DIM).to(device)
 
     # COMMENT FOR INITIAL TRAINING
-    PATH_TRANSFORMER = '../neural_network/bestTransformer.pth'
-    transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    PATH_MLP_POLICY = '../neural_network/bestMLP.pth'
-    mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
-    PATH_DEEP_Q = '../neural_network/bestDeepQ.pth'
-    deep_Q_net_policy.load_state_dict(torch.load(PATH_DEEP_Q))
+    # PATH_TRANSFORMER = '../neural_network/bestTransformer.pth'
+    # transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
+    # PATH_MLP_POLICY = '../neural_network/bestMLP.pth'
+    # mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
+    # PATH_DEEP_Q = '../neural_network/bestDeepQ.pth'
+    # deep_Q_net_policy.load_state_dict(torch.load(PATH_DEEP_Q))
 
     # ACTOR POLICY NET target
     transformer_target = TransformerEncoderDecoder(embed_dim=EMBEDDED_DIM).to(device)
@@ -106,54 +106,35 @@ if TRAIN:
         return action
 
 
-    def select_actions_epsilon_greedy(state):
-        global time_steps_done
-        global UAV_NUMBER
-        uav_info, connected_gu_positions = np.split(state, [UAV_NUMBER * 2], axis=0)
-        uav_info = uav_info.reshape(UAV_NUMBER, 4)
-        uav_info = torch.from_numpy(uav_info).float().to(device)
-        connected_gu_positions = torch.from_numpy(connected_gu_positions).float().to(device)
-        action = []
-        with torch.no_grad():
-            tokens = transformer_policy(connected_gu_positions.unsqueeze(0), uav_info.unsqueeze(0)).squeeze(0)
-        time_steps_done += 1
-        eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1.0 * time_steps_done / EPS_DECAY)
-        for i in range(UAV_NUMBER):
-            sample = random.random()
-            if sample > eps_threshold:
-                with torch.no_grad():
-                    # return action according to MLP [vx, vy] + epsilon noise
-                    output = mlp_policy(tokens[i])
-                    output = output + torch.randn(2).to(
-                        device)
-                    output = torch.clip(output, -1.0, 1.0)
-                    output = output.cpu().numpy().reshape(2)
-                    output = output * MAX_SPEED_UAV
-                    action.append(output)
-            else:
-                output = np.random.uniform(low=-1.0, high=1.0, size=2)
-                output = output * MAX_SPEED_UAV
-                action.append(output)
-        return action
-
-
-    def select_actions(state):
-        global UAV_NUMBER
-        uav_info, connected_gu_positions = np.split(state, [UAV_NUMBER * 2], axis=0)
-        uav_info = uav_info.reshape(UAV_NUMBER, 4)
-        uav_info = torch.from_numpy(uav_info).float().to(device)
-        connected_gu_positions = torch.from_numpy(connected_gu_positions).float().to(device)
-        action = []
-        with torch.no_grad():
-            tokens = transformer_policy(connected_gu_positions.unsqueeze(0), uav_info.unsqueeze(0)).squeeze(0)
-        for i in range(UAV_NUMBER):
-            with torch.no_grad():
-                # return action according to MLP [vx, vy]
-                output = mlp_policy(tokens[i])
-                output = output.cpu().numpy().reshape(2)
-                output = output * MAX_SPEED_UAV
-                action.append(output)
-        return action
+    # def select_actions_epsilon_greedy(state):
+    #     global time_steps_done
+    #     global UAV_NUMBER
+    #     uav_info, connected_gu_positions = np.split(state, [UAV_NUMBER * 2], axis=0)
+    #     uav_info = uav_info.reshape(UAV_NUMBER, 4)
+    #     uav_info = torch.from_numpy(uav_info).float().to(device)
+    #     connected_gu_positions = torch.from_numpy(connected_gu_positions).float().to(device)
+    #     action = []
+    #     with torch.no_grad():
+    #         tokens = transformer_policy(connected_gu_positions.unsqueeze(0), uav_info.unsqueeze(0)).squeeze(0)
+    #     time_steps_done += 1
+    #     eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1.0 * time_steps_done / EPS_DECAY)
+    #     for i in range(UAV_NUMBER):
+    #         sample = random.random()
+    #         if sample > eps_threshold:
+    #             with torch.no_grad():
+    #                 # return action according to MLP [vx, vy] + epsilon noise
+    #                 output = mlp_policy(tokens[i])
+    #                 output = output + torch.randn(2).to(
+    #                     device)
+    #                 output = torch.clip(output, -1.0, 1.0)
+    #                 output = output.cpu().numpy().reshape(2)
+    #                 output = output * MAX_SPEED_UAV
+    #                 action.append(output)
+    #         else:
+    #             output = np.random.uniform(low=-1.0, high=1.0, size=2)
+    #             output = output * MAX_SPEED_UAV
+    #             action.append(output)
+    #     return action
 
 
     def optimize_model():
@@ -226,6 +207,7 @@ if TRAIN:
 
         loss_Q = 0.0
         loss_policy = 0.0
+        loss_transformer = 0.0
 
         for i in range(UAV_NUMBER):
             # UPDATE Q-FUNCTION
@@ -256,9 +238,10 @@ if TRAIN:
             output_batch = output_batch * MAX_SPEED_UAV  # actions batch for UAV i-th [BATCH_SIZE, 2]
             Q_values_batch = deep_Q_net_policy(current_batch_tensor_tokens_states_target, output_batch)
             loss_policy += -Q_values_batch.mean()
+            loss_transformer += criterion(current_batch_tensor_tokens_states, current_batch_tensor_tokens_states_target)
 
         # log metrics to wandb
-        wandb.log({"loss_Q": loss_Q, "loss_policy": loss_policy})
+        wandb.log({"loss_Q": loss_Q, "loss_policy": loss_policy, "loss_transformer": loss_transformer})
 
         # print("LOSS: ", loss)
         optimizer_deep_Q.zero_grad()
@@ -304,6 +287,25 @@ if TRAIN:
         deep_Q_net_target.load_state_dict(target_net_state_dict)
 
 
+    def select_actions(state):
+        global UAV_NUMBER
+        uav_info, connected_gu_positions = np.split(state, [UAV_NUMBER * 2], axis=0)
+        uav_info = uav_info.reshape(UAV_NUMBER, 4)
+        uav_info = torch.from_numpy(uav_info).float().to(device)
+        connected_gu_positions = torch.from_numpy(connected_gu_positions).float().to(device)
+        action = []
+        with torch.no_grad():
+            tokens = transformer_policy(connected_gu_positions.unsqueeze(0), uav_info.unsqueeze(0)).squeeze(0)
+        for i in range(UAV_NUMBER):
+            with torch.no_grad():
+                # return action according to MLP [vx, vy]
+                output = mlp_policy(tokens[i])
+                output = output.cpu().numpy().reshape(2)
+                output = output * MAX_SPEED_UAV
+                action.append(output)
+        return action
+
+
     def validate():
         global BEST_VALIDATION
         reward_sum = 0.0
@@ -347,8 +349,8 @@ if TRAIN:
         print("Episode: ", i_episode)
         options = None
         # Good example with GU in cluster
-        if i_episode % 25 == 0:
-            options = Constraint.CONSTRAINT802.value
+        # if i_episode % 25 == 0:
+        #     options = Constraint.CONSTRAINT60.value
         state, info = env.reset(seed=int(time.perf_counter()), options=options)
         steps = 1
         while True:
@@ -370,8 +372,7 @@ if TRAIN:
             if done:
                 break
 
-        if i_episode != 0 and i_episode % 100 == 0:
-            validate()
+        validate()
 
     # save the nets
     torch.save(transformer_policy.state_dict(), '../neural_network/lastTransformer.pth')
@@ -412,10 +413,10 @@ else:
     transformer_policy = TransformerEncoderDecoder(embed_dim=EMBEDDED_DIM).to(device)
     mlp_policy = MLPPolicyNet(token_dim=EMBEDDED_DIM).to(device)
 
-    PATH_TRANSFORMER = './neural_network/bestTransformer.pth'
-    transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    PATH_MLP_POLICY = './neural_network/bestMLP.pth'
-    mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
+    # PATH_TRANSFORMER = './neural_network/bestTransformer.pth'
+    # transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
+    # PATH_MLP_POLICY = './neural_network/bestMLP.pth'
+    # mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
 
     # options = Constraint.CONSTRAINT60.value
     options = None

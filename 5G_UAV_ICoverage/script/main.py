@@ -309,9 +309,10 @@ if TRAIN:
     def validate():
         global BEST_VALIDATION
         reward_sum = 0.0
+        options = None
         seeds = [42, 15267, 98765, 54321, 24680]
         for i in seeds:
-            state, info = env.reset(seed=i)
+            state, info = env.reset(seed=i, options=options)
             steps = 1
             while True:
                 actions = select_actions(state)

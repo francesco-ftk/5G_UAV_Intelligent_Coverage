@@ -45,8 +45,8 @@ class CruiseUAV(Cruise):
     UAV_NUMBER = 1
     STARTING_GU_NUMBER = 30
     gu_number: int
-    MINIMUM_STARTING_DISTANCE_BETWEEN_UAV = 100  # meters
-    COLLISION_DISTANCE = 30  # meters
+    MINIMUM_STARTING_DISTANCE_BETWEEN_UAV = 1000  # meters
+    COLLISION_DISTANCE = 100  # meters
 
     SPAWN_GU_PROB = 0.0005
     disappear_gu_prob: float
@@ -241,8 +241,8 @@ class CruiseUAV(Cruise):
         for i, uav in enumerate(self.uav):
             if not uav.position.is_in_area(area):
                 return True
-            if self.collision(i, uav):
-                return True
+            # if self.collision(i, uav):
+            #     return True
         return False
 
     def collision(self, current_uav_index, uav) -> bool:
@@ -260,15 +260,15 @@ class CruiseUAV(Cruise):
     def calculate_reward(self, terminated: bool) -> float:
         if terminated:
             # collision or environment exit penality
-            return -100.0
+            return -1000.0
         # calculate Region Coverage Ratio with last reward
         current_RCR = self.gu_covered / len(self.gu)
         if self.last_RCR is None:
             self.last_RCR = current_RCR
-            return current_RCR * 10.0
+            return current_RCR * 100.0
         delta_RCR_smorzato = self.reward_gamma * (current_RCR - self.last_RCR)
         self.last_RCR = current_RCR
-        return (current_RCR + delta_RCR_smorzato) * 10.0
+        return (current_RCR + delta_RCR_smorzato) * 100.0
 
     # def calculate_reward(self, terminated: bool) -> float:
     #     if terminated:

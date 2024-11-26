@@ -106,35 +106,35 @@ if TRAIN:
         return action
 
 
-    def select_actions_epsilon_greedy(state):
-        global time_steps_done
-        global UAV_NUMBER
-        uav_info, connected_gu_positions = np.split(state, [UAV_NUMBER * 2], axis=0)
-        uav_info = uav_info.reshape(UAV_NUMBER, 4)
-        uav_info = torch.from_numpy(uav_info).float().to(device)
-        connected_gu_positions = torch.from_numpy(connected_gu_positions).float().to(device)
-        action = []
-        with torch.no_grad():
-            tokens = transformer_policy(connected_gu_positions.unsqueeze(0), uav_info.unsqueeze(0)).squeeze(0)
-        time_steps_done += 1
-        eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1.0 * time_steps_done / EPS_DECAY)
-        for i in range(UAV_NUMBER):
-            sample = random.random()
-            if sample > eps_threshold:
-                with torch.no_grad():
-                    # return action according to MLP [vx, vy] + epsilon noise
-                    output = mlp_policy(tokens[i])
-                    output = output + torch.randn(2).to(
-                        device)
-                    output = torch.clip(output, -1.0, 1.0)
-                    output = output.cpu().numpy().reshape(2)
-                    output = output * MAX_SPEED_UAV
-                    action.append(output)
-            else:
-                output = np.random.uniform(low=-1.0, high=1.0, size=2)
-                output = output * MAX_SPEED_UAV
-                action.append(output)
-        return action
+    # def select_actions_epsilon_greedy(state):
+    #     global time_steps_done
+    #     global UAV_NUMBER
+    #     uav_info, connected_gu_positions = np.split(state, [UAV_NUMBER * 2], axis=0)
+    #     uav_info = uav_info.reshape(UAV_NUMBER, 4)
+    #     uav_info = torch.from_numpy(uav_info).float().to(device)
+    #     connected_gu_positions = torch.from_numpy(connected_gu_positions).float().to(device)
+    #     action = []
+    #     with torch.no_grad():
+    #         tokens = transformer_policy(connected_gu_positions.unsqueeze(0), uav_info.unsqueeze(0)).squeeze(0)
+    #     time_steps_done += 1
+    #     eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1.0 * time_steps_done / EPS_DECAY)
+    #     for i in range(UAV_NUMBER):
+    #         sample = random.random()
+    #         if sample > eps_threshold:
+    #             with torch.no_grad():
+    #                 # return action according to MLP [vx, vy] + epsilon noise
+    #                 output = mlp_policy(tokens[i])
+    #                 output = output + torch.randn(2).to(
+    #                     device)
+    #                 output = torch.clip(output, -1.0, 1.0)
+    #                 output = output.cpu().numpy().reshape(2)
+    #                 output = output * MAX_SPEED_UAV
+    #                 action.append(output)
+    #         else:
+    #             output = np.random.uniform(low=-1.0, high=1.0, size=2)
+    #             output = output * MAX_SPEED_UAV
+    #             action.append(output)
+    #     return action
 
 
     def optimize_model():
@@ -286,6 +286,50 @@ if TRAIN:
                     1 - BETA)
         deep_Q_net_target.load_state_dict(target_net_state_dict)
 
+    def select_actions(state):
+        global UAV_NUMBER
+        uav_info, connected_gu_positions = np.split(state, [UAV_NUMBER * 2], axis=0)
+        uav_info = uav_info.reshape(UAV_NUMBER, 4)
+        uav_info = torch.from_numpy(uav_info).float().to(device)
+        connected_gu_positions = torch.from_numpy(connected_gu_positions).float().to(device)
+        action = []
+        with torch.no_grad():
+            tokens = transformer_policy(connected_gu_positions.unsqueeze(0), uav_info.unsqueeze(0)).squeeze(0)
+        for i in range(UAV_NUMBER):
+            with torch.no_grad():
+                # return action according to MLP [vx, vy]
+                output = mlp_policy(tokens[i])
+                output = output.cpu().numpy().reshape(2)
+                output = output * MAX_SPEED_UAV
+                action.append(output)
+        return action
+
+    def validate():
+        global BEST_VALIDATION
+        reward_sum = 0.0
+        options = Constraint.CONSTRAINT20.value
+        state, info = env.reset(seed=int(time.perf_counter()), options=options)
+        steps = 1
+        while True:
+            actions = select_actions(state)
+            next_state, reward, terminated, truncated, _ = env.step(actions)
+            reward_sum += reward
+            if steps == 300:
+                truncated = True
+            done = terminated or truncated
+            state = next_state
+            steps += 1
+            if done:
+                break
+
+        wandb.log({"reward": reward_sum})
+
+        if reward_sum > BEST_VALIDATION:
+            BEST_VALIDATION = reward_sum
+            # save the best validation nets
+            torch.save(transformer_policy.state_dict(), '../neural_network/rewardTransformer.pth')
+            torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
+
 
     if torch.cuda.is_available():
         num_episodes = 1500
@@ -320,10 +364,12 @@ if TRAIN:
             if done:
                 break
 
+        validate()
+
     # save the nets
-    torch.save(transformer_policy.state_dict(), '../neural_network/rewardTransformer.pth')
-    torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
-    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/rewardDeepQ.pth')
+    torch.save(transformer_policy.state_dict(), '../neural_network/lastTransformer.pth')
+    torch.save(mlp_policy.state_dict(), '../neural_network/lastMLP.pth')
+    # torch.save(deep_Q_net_policy.state_dict(), '../neural_network/rewardDeepQ.pth')
     
     wandb.finish()
     env.close()

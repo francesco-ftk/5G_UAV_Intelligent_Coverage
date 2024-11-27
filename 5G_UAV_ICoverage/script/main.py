@@ -63,7 +63,7 @@ if TRAIN:
     PATH_MLP_POLICY = '../neural_network/rewardMLP.pth'
     mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
     # PATH_DEEP_Q = '../neural_network/rewardDeepQ.pth'
-    # deep_Q_net_policy.load_state_dict(torch.load(PATH_DEEP_Q))
+    # deep_Q_net_policy.load_state_dict(torch.load(PATH_DEEP_Q)) TODO aprire?
 
     # ACTOR POLICY NET target
     transformer_target = TransformerEncoderDecoder(embed_dim=EMBEDDED_DIM).to(device)

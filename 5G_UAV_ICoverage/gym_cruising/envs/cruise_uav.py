@@ -46,7 +46,7 @@ class CruiseUAV(Cruise):
     STARTING_GU_NUMBER = 60
     gu_number: int
     MINIMUM_STARTING_DISTANCE_BETWEEN_UAV = 500  # meters
-    COLLISION_DISTANCE = 200  # meters
+    COLLISION_DISTANCE = 100  # meters
 
     SPAWN_GU_PROB = 0.0005
     disappear_gu_prob: float

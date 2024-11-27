@@ -218,7 +218,7 @@ if TRAIN:
                 output_batch = mlp_target(current_batch_tensor_tokens_next_states_target)
                 output_batch = output_batch * MAX_SPEED_UAV  # actions batch for UAV i-th [BATCH_SIZE, 2]
                 current_y_batch = rewards_batch + GAMMA * (1.0 - terminated_batch) * deep_Q_net_target(
-                    current_batch_tensor_tokens_next_states_target, output_batch)
+                    current_batch_tensor_tokens_next_states_target, output_batch)  # TODO usa min sui due q target
             # slice i-th UAV's tokens [BATCH_SIZE, 1, 16]
             current_batch_tensor_tokens_states = tokens_batch_states[:, i:i + 1, :].squeeze(1)
             # Concatenate i-th UAV's actions along the batch size [BATCH_SIZE, 2]
@@ -229,7 +229,7 @@ if TRAIN:
 
             criterion = nn.MSELoss()
             # Optimize Deep Q Net
-            loss_Q += criterion(Q_values_batch, current_y_batch)
+            loss_Q += criterion(Q_values_batch, current_y_batch)  # TODO criterion q1 + criterion q2 stesso current_y
 
             # UPDATE POLICY
             # slice i-th UAV's tokens [BATCH_SIZE, 1, 16]

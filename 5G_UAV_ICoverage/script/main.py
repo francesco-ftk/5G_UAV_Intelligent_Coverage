@@ -310,7 +310,7 @@ if TRAIN:
         global BEST_VALIDATION
         reward_sum = 0.0
         options = None
-        seeds = [42, 15267, 98765, 54321, 24680]
+        seeds = [42, 751, 853, 54321, 1181]
         for i in seeds:
             state, info = env.reset(seed=i, options=options)
             steps = 1
@@ -334,13 +334,13 @@ if TRAIN:
         if reward_sum > BEST_VALIDATION:
             BEST_VALIDATION = reward_sum
             # save the best validation nets
-            torch.save(transformer_policy.state_dict(), '../neural_network/rewardTransformer.pth')
-            torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
-            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/rewardDeepQ.pth')
+            torch.save(transformer_policy.state_dict(), '../neural_network/bestTransformer.pth')
+            torch.save(mlp_policy.state_dict(), '../neural_network/bestMLP.pth')
+            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/bestDeepQ.pth')
 
 
     if torch.cuda.is_available():
-        num_episodes = 1500
+        num_episodes = 800
     else:
         num_episodes = 100
 
@@ -414,15 +414,19 @@ else:
     transformer_policy = TransformerEncoderDecoder(embed_dim=EMBEDDED_DIM).to(device)
     mlp_policy = MLPPolicyNet(token_dim=EMBEDDED_DIM).to(device)
 
-    # PATH_TRANSFORMER = './neural_network/bestTransformer.pth'
-    # transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    # PATH_MLP_POLICY = './neural_network/bestMLP.pth'
-    # mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
+    PATH_TRANSFORMER = './neural_network/rewardTransformer.pth'
+    transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
+    PATH_MLP_POLICY = './neural_network/rewardMLP.pth'
+    mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
 
     # options = Constraint.CONSTRAINT60.value
     options = None
 
-    state, info = env.reset(seed=int(time.perf_counter()), options=options)
+# 751, 853, 992, 54321
+
+    time = int(time.perf_counter())
+    print("Time: ", time)
+    state, info = env.reset(seed=751, options=options)
     steps = 1
     max_reward = 0.0
     rewards = []

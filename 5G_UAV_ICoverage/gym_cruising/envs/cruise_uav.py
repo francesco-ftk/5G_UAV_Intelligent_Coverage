@@ -46,7 +46,7 @@ class CruiseUAV(Cruise):
     STARTING_GU_NUMBER = 60
     gu_number: int
     MINIMUM_STARTING_DISTANCE_BETWEEN_UAV = 500  # meters
-    COLLISION_DISTANCE = 100  # meters
+    COLLISION_DISTANCE = 200  # meters
 
     SPAWN_GU_PROB = 0.0005
     disappear_gu_prob: float
@@ -93,7 +93,7 @@ class CruiseUAV(Cruise):
 
     def perform_action(self, actions) -> None:
         self.move_UAV(actions)
-        # self.update_GU()
+        self.update_GU()
         self.calculate_PathLoss_with_Markov_Chain()
         self.calculate_SINR()
         self.check_connection_and_coverage_UAV_GU()

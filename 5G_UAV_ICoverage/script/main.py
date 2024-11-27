@@ -23,7 +23,7 @@ from gym_cruising.enums.constraint import Constraint
 
 UAV_NUMBER = 1
 
-TRAIN = False
+TRAIN = True
 EPS_START = 0.95  # the starting value of epsilon
 EPS_END = 0.35  # the final value of epsilon
 EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
@@ -327,8 +327,8 @@ if TRAIN:
         if reward_sum > BEST_VALIDATION:
             BEST_VALIDATION = reward_sum
             # save the best validation nets
-            torch.save(transformer_policy.state_dict(), '../neural_network/rewardTransformer.pth')
-            torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
+            torch.save(transformer_policy.state_dict(), '../neural_network/reward1Transformer.pth')
+            torch.save(mlp_policy.state_dict(), '../neural_network/reward1MLP.pth')
 
 
     if torch.cuda.is_available():
@@ -367,8 +367,8 @@ if TRAIN:
         validate()
 
     # save the nets
-    torch.save(transformer_policy.state_dict(), '../neural_network/lastTransformer.pth')
-    torch.save(mlp_policy.state_dict(), '../neural_network/lastMLP.pth')
+    torch.save(transformer_policy.state_dict(), '../neural_network/last1Transformer.pth')
+    torch.save(mlp_policy.state_dict(), '../neural_network/last1MLP.pth')
     # torch.save(deep_Q_net_policy.state_dict(), '../neural_network/rewardDeepQ.pth')
     
     wandb.finish()

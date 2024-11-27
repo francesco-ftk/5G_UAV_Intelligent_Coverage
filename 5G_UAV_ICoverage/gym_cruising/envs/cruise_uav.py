@@ -93,7 +93,7 @@ class CruiseUAV(Cruise):
 
     def perform_action(self, actions) -> None:
         self.move_UAV(actions)
-        # self.update_GU()
+        self.update_GU()
         self.calculate_PathLoss_with_Markov_Chain()
         self.calculate_SINR()
         self.check_connection_and_coverage_UAV_GU()

@@ -27,7 +27,7 @@ TRAIN = True
 EPS_START = 0.95  # the starting value of epsilon
 EPS_END = 0.35  # the final value of epsilon
 EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
-BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
+BATCH_SIZE = 3  # is the number of transitions random sampled from the replay buffer
 LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
 BETA = 0.005  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
@@ -48,7 +48,7 @@ print("DEVICE:", device)
 
 if TRAIN:
 
-    wandb.init(project="5G_UAV_ICoverage_Curriculum_Learning")
+    wandb.init(project="5G_UAV_ICoverage_Curriculum_Learning_tdddpg")
 
     env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=3)
     env.action_space.seed(42)
@@ -66,7 +66,7 @@ if TRAIN:
     # PATH_MLP_POLICY = '../neural_network/rewardMLP.pth'
     # mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
     # PATH_DEEP_Q = '../neural_network/rewardDeepQ.pth'
-    # deep_Q_net_policy.load_state_dict(torch.load(PATH_DEEP_Q)) TODO aprire?
+    # deep_Q_net_policy.load_state_dict(torch.load(PATH_DEEP_Q))
 
     # ACTOR POLICY NET target
     transformer_target = TransformerEncoderDecoder(embed_dim=EMBEDDED_DIM).to(device)
@@ -146,7 +146,7 @@ if TRAIN:
         global UAV_NUMBER
         global BATCH_SIZE
 
-        if len(replay_buffer) < 5000:
+        if len(replay_buffer) < 5:
             return
 
         transitions = replay_buffer.sample(BATCH_SIZE)
@@ -227,8 +227,8 @@ if TRAIN:
                 clipped_noise = torch.clip(noise, -c, c)
                 output_batch = torch.clip(output_batch + clipped_noise, -1.0, 1.0)
                 output_batch = output_batch * MAX_SPEED_UAV  # actions batch for UAV i-th [BATCH_SIZE, 2]
-                current_y_batch = rewards_batch + GAMMA * (1.0 - terminated_batch) * min(deep_Q_net_target(
-                    current_batch_tensor_tokens_next_states_target, output_batch))
+                Q1_values_batch, Q2_values_batch = deep_Q_net_target(current_batch_tensor_tokens_next_states_target, output_batch)
+                current_y_batch = rewards_batch + GAMMA * (1.0 - terminated_batch) * torch.min(Q1_values_batch, Q2_values_batch)
             # slice i-th UAV's tokens [BATCH_SIZE, 1, 16]
             current_batch_tensor_tokens_states = tokens_batch_states[:, i:i + 1, :].squeeze(1)
             # Concatenate i-th UAV's actions along the batch size [BATCH_SIZE, 2]
@@ -246,8 +246,8 @@ if TRAIN:
             current_batch_tensor_tokens_states_target = tokens_batch_states_target[:, i:i + 1, :].squeeze(1)
             output_batch = mlp_policy(current_batch_tensor_tokens_states_target)
             output_batch = output_batch * MAX_SPEED_UAV  # actions batch for UAV i-th [BATCH_SIZE, 2]
-            Q_values_batch = deep_Q_net_policy(current_batch_tensor_tokens_states_target, output_batch)
-            loss_policy += -Q_values_batch.mean()
+            Q1_values_batch, Q2_values_batch = deep_Q_net_policy(current_batch_tensor_tokens_states_target, output_batch)
+            loss_policy += -Q1_values_batch.mean()
             loss_transformer += criterion(current_batch_tensor_tokens_states, current_batch_tensor_tokens_states_target)
 
         # log metrics to wandb

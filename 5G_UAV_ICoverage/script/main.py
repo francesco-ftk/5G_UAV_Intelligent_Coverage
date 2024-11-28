@@ -27,7 +27,7 @@ TRAIN = True
 EPS_START = 0.95  # the starting value of epsilon
 EPS_END = 0.35  # the final value of epsilon
 EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
-BATCH_SIZE = 3  # is the number of transitions random sampled from the replay buffer
+BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
 LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
 BETA = 0.005  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
@@ -146,7 +146,7 @@ if TRAIN:
         global UAV_NUMBER
         global BATCH_SIZE
 
-        if len(replay_buffer) < 5:
+        if len(replay_buffer) < 5000:
             return
 
         transitions = replay_buffer.sample(BATCH_SIZE)

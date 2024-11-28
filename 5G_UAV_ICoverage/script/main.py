@@ -17,13 +17,13 @@ import wandb
 
 from gym_cruising.memory.replay_memory import ReplayMemory, Transition
 from gym_cruising.neural_network.MLP_policy_net import MLPPolicyNet
-from gym_cruising.neural_network.deep_Q_net import DeepQNet
+from gym_cruising.neural_network.deep_Q_net import DeepQNet, DoubleDeepQNet
 from gym_cruising.neural_network.transformer_encoder_decoder import TransformerEncoderDecoder
 from gym_cruising.enums.constraint import Constraint
 
 UAV_NUMBER = 2
 
-TRAIN = False
+TRAIN = True
 EPS_START = 0.95  # the starting value of epsilon
 EPS_END = 0.35  # the final value of epsilon
 EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
@@ -31,6 +31,9 @@ BATCH_SIZE = 256  # is the number of transitions random sampled from the replay 
 LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
 BETA = 0.005  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
+sigma = 0.2  # Standard deviation of noise for target policy actions on next states
+c = 0.2  # Clipping bound of noise
+policy_delay = 2  # delay for policy and target nets update
 
 MAX_SPEED_UAV = 55.6  # m/s - about 20 Km/h x 10 secondi
 
@@ -55,13 +58,13 @@ if TRAIN:
     mlp_policy = MLPPolicyNet(token_dim=EMBEDDED_DIM).to(device)
 
     # CRITIC Q NET policy
-    deep_Q_net_policy = DeepQNet(state_dim=EMBEDDED_DIM).to(device)
+    deep_Q_net_policy = DoubleDeepQNet(state_dim=EMBEDDED_DIM).to(device)
 
     # COMMENT FOR INITIAL TRAINING
-    PATH_TRANSFORMER = '../neural_network/rewardTransformer.pth'
-    transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    PATH_MLP_POLICY = '../neural_network/rewardMLP.pth'
-    mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
+    # PATH_TRANSFORMER = '../neural_network/rewardTransformer.pth'
+    # transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
+    # PATH_MLP_POLICY = '../neural_network/rewardMLP.pth'
+    # mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
     # PATH_DEEP_Q = '../neural_network/rewardDeepQ.pth'
     # deep_Q_net_policy.load_state_dict(torch.load(PATH_DEEP_Q)) TODO aprire?
 
@@ -70,7 +73,7 @@ if TRAIN:
     mlp_target = MLPPolicyNet(token_dim=EMBEDDED_DIM).to(device)
 
     # CRITIC Q NET target
-    deep_Q_net_target = DeepQNet(state_dim=EMBEDDED_DIM).to(device)
+    deep_Q_net_target = DoubleDeepQNet(state_dim=EMBEDDED_DIM).to(device)
 
     # set target parameters equal to main parameters
     transformer_target.load_state_dict(transformer_policy.state_dict())
@@ -85,6 +88,7 @@ if TRAIN:
 
 
     def select_actions_epsilon(state):
+        global time_steps_done
         global UAV_NUMBER
         uav_info, connected_gu_positions = np.split(state, [UAV_NUMBER * 2], axis=0)
         uav_info = uav_info.reshape(UAV_NUMBER, 4)
@@ -93,6 +97,7 @@ if TRAIN:
         action = []
         with torch.no_grad():
             tokens = transformer_policy(connected_gu_positions.unsqueeze(0), uav_info.unsqueeze(0)).squeeze(0)
+        time_steps_done += 1
         for i in range(UAV_NUMBER):
             with torch.no_grad():
                 # return action according to MLP [vx, vy] + epsilon noise
@@ -216,20 +221,25 @@ if TRAIN:
                 current_batch_tensor_tokens_next_states_target = tokens_batch_next_states_target[:, i:i + 1, :].squeeze(
                     1)
                 output_batch = mlp_target(current_batch_tensor_tokens_next_states_target)
+                # noise generation for target next states actions according to N(0,sigma)
+                noise = (torch.randn((BATCH_SIZE, 2)) * sigma).to(device)
+                # Clipping of noise
+                clipped_noise = torch.clip(noise, -c, c)
+                output_batch = torch.clip(output_batch + clipped_noise, -1.0, 1.0)
                 output_batch = output_batch * MAX_SPEED_UAV  # actions batch for UAV i-th [BATCH_SIZE, 2]
-                current_y_batch = rewards_batch + GAMMA * (1.0 - terminated_batch) * deep_Q_net_target(
-                    current_batch_tensor_tokens_next_states_target, output_batch)  # TODO usa min sui due q target
+                current_y_batch = rewards_batch + GAMMA * (1.0 - terminated_batch) * min(deep_Q_net_target(
+                    current_batch_tensor_tokens_next_states_target, output_batch))
             # slice i-th UAV's tokens [BATCH_SIZE, 1, 16]
             current_batch_tensor_tokens_states = tokens_batch_states[:, i:i + 1, :].squeeze(1)
             # Concatenate i-th UAV's actions along the batch size [BATCH_SIZE, 2]
             current_batch_actions = torch.cat(
                 [action[i].unsqueeze(0) for action in actions_batch],
                 dim=0).to(device)
-            Q_values_batch = deep_Q_net_policy(current_batch_tensor_tokens_states, current_batch_actions)
+            Q1_values_batch, Q2_values_batch = deep_Q_net_policy(current_batch_tensor_tokens_states, current_batch_actions)
 
             criterion = nn.MSELoss()
             # Optimize Deep Q Net
-            loss_Q += criterion(Q_values_batch, current_y_batch)  # TODO criterion q1 + criterion q2 stesso current_y
+            loss_Q += criterion(Q1_values_batch, current_y_batch) + criterion(Q2_values_batch, current_y_batch)
 
             # UPDATE POLICY
             # slice i-th UAV's tokens [BATCH_SIZE, 1, 16]
@@ -253,13 +263,14 @@ if TRAIN:
         # Optimize Transformer Net
         optimizer_transformer.step()
 
-        # Optimize Policy Net MLP
-        optimizer_mlp.zero_grad()
-        loss_policy.backward()
-        torch.nn.utils.clip_grad_value_(mlp_policy.parameters(), 100)
-        optimizer_mlp.step()
+        if time_steps_done % policy_delay == 0:
+            # Optimize Policy Net MLP
+            optimizer_mlp.zero_grad()
+            loss_policy.backward()
+            torch.nn.utils.clip_grad_value_(mlp_policy.parameters(), 100)
+            optimizer_mlp.step()
 
-        soft_update_target_networks()
+            soft_update_target_networks()
 
 
     def soft_update_target_networks():
@@ -426,7 +437,7 @@ else:
 
     time = int(time.perf_counter())
     print("Time: ", time)
-    state, info = env.reset(seed=751, options=options)
+    state, info = env.reset(seed=time, options=options)
     steps = 1
     max_reward = 0.0
     rewards = []

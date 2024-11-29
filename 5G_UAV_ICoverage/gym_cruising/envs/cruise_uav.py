@@ -45,8 +45,8 @@ class CruiseUAV(Cruise):
     UAV_NUMBER = 2
     STARTING_GU_NUMBER = 60
     gu_number: int
-    MINIMUM_STARTING_DISTANCE_BETWEEN_UAV = 100  # meters
-    COLLISION_DISTANCE = 30  # meters
+    MINIMUM_STARTING_DISTANCE_BETWEEN_UAV = 500  # meters
+    COLLISION_DISTANCE = 100  # meters
 
     SPAWN_GU_PROB = 0.0005
     disappear_gu_prob: float
@@ -265,16 +265,16 @@ class CruiseUAV(Cruise):
         current_RCR = self.gu_covered / len(self.gu)
         if self.last_RCR is None:
             self.last_RCR = current_RCR
-            return (current_RCR * 100.0) - self.get_relative_distance_penality()
+            return current_RCR * 100.0
         delta_RCR_smorzato = self.reward_gamma * (current_RCR - self.last_RCR)
         self.last_RCR = current_RCR
-        return ((current_RCR + delta_RCR_smorzato) * 100.0) - self.get_relative_distance_penality()
+        return (current_RCR + delta_RCR_smorzato) * 100.0
 
-    def get_relative_distance_penality(self) -> float:
-        distance_between_uav = self.uav[0].position.calculate_distance(self.uav[1].position)
-        if distance_between_uav >= 100.0:
-            return 0.0
-        return 100.0 - distance_between_uav
+    # def get_relative_distance_penality(self) -> float:
+    #     distance_between_uav = self.uav[0].position.calculate_distance(self.uav[1].position)
+    #     if distance_between_uav >= 100.0:
+    #         return 0.0
+    #     return 100.0 - distance_between_uav
 
     # def calculate_reward(self, terminated: bool) -> float:
     #     if terminated:

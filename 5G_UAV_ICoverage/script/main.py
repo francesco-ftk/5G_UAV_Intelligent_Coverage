@@ -34,7 +34,7 @@ GAMMA = 0.99  # Discount Factor
 sigma = 0.2  # Standard deviation of noise for target policy actions on next states
 c = 0.2  # Clipping bound of noise
 policy_delay = 2  # delay for policy and target nets update
-start_steps = 45000
+start_steps = 150000
 end_steps = 195000  # TODO ridurre alla fine noise su azioni da varianza 1 a 0.5
 
 MAX_SPEED_UAV = 55.6  # m/s - about 20 Km/h x 10 secondi
@@ -352,13 +352,13 @@ if TRAIN:
         if reward_sum > BEST_VALIDATION:
             BEST_VALIDATION = reward_sum
             # save the best validation nets
-            torch.save(transformer_policy.state_dict(), '../neural_network/rewardTransformer.pth')
-            torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
-            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/rewardDeepQ.pth')
+            torch.save(transformer_policy.state_dict(), '../neural_network/reward1Transformer.pth')
+            torch.save(mlp_policy.state_dict(), '../neural_network/reward1MLP.pth')
+            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/reward1DeepQ.pth')
 
 
     if torch.cuda.is_available():
-        num_episodes = 800
+        num_episodes = 1000
     else:
         num_episodes = 100
 
@@ -395,9 +395,9 @@ if TRAIN:
             validate()
 
     # save the nets
-    torch.save(transformer_policy.state_dict(), '../neural_network/lastTransformer.pth')
-    torch.save(mlp_policy.state_dict(), '../neural_network/lastMLP.pth')
-    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/lastDeepQ.pth')
+    torch.save(transformer_policy.state_dict(), '../neural_network/last1Transformer.pth')
+    torch.save(mlp_policy.state_dict(), '../neural_network/last1MLP.pth')
+    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/last1DeepQ.pth')
 
     wandb.finish()
     env.close()

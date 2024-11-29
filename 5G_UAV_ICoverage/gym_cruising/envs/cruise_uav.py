@@ -271,7 +271,7 @@ class CruiseUAV(Cruise):
         return ((current_RCR + delta_RCR_smorzato) * 100.0) - self.get_relative_distance_penality()
 
     def get_relative_distance_penality(self) -> float:
-        distance_between_uav = self.uav[0].position.calculate_distance(self.uav[1])
+        distance_between_uav = self.uav[0].position.calculate_distance(self.uav[1].position)
         if distance_between_uav >= 100.0:
             return 0.0
         return 100.0 - distance_between_uav

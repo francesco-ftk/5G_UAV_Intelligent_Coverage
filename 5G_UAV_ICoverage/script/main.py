@@ -34,6 +34,7 @@ GAMMA = 0.99  # Discount Factor
 sigma = 0.2  # Standard deviation of noise for target policy actions on next states
 c = 0.2  # Clipping bound of noise
 policy_delay = 2  # delay for policy and target nets update
+start_steps = 45000
 
 MAX_SPEED_UAV = 55.6  # m/s - about 20 Km/h x 10 secondi
 
@@ -99,15 +100,20 @@ if TRAIN:
             tokens = transformer_policy(connected_gu_positions.unsqueeze(0), uav_info.unsqueeze(0)).squeeze(0)
         time_steps_done += 1
         for i in range(UAV_NUMBER):
-            with torch.no_grad():
-                # return action according to MLP [vx, vy] + epsilon noise
-                output = mlp_policy(tokens[i])
-                output = output + torch.randn(2).to(
-                    device)
-                output = torch.clip(output, -1.0, 1.0)
-                output = output.cpu().numpy().reshape(2)
+            if time_steps_done < start_steps:
+                output = np.random.uniform(low=-1.0, high=1.0, size=2)
                 output = output * MAX_SPEED_UAV
                 action.append(output)
+            else:
+                with torch.no_grad():
+                    # return action according to MLP [vx, vy] + epsilon noise
+                    output = mlp_policy(tokens[i])
+                    output = output + torch.randn(2).to(
+                        device)
+                    output = torch.clip(output, -1.0, 1.0)
+                    output = output.cpu().numpy().reshape(2)
+                    output = output * MAX_SPEED_UAV
+                    action.append(output)
         return action
 
 
@@ -345,9 +351,9 @@ if TRAIN:
         if reward_sum > BEST_VALIDATION:
             BEST_VALIDATION = reward_sum
             # save the best validation nets
-            torch.save(transformer_policy.state_dict(), '../neural_network/bestTransformer.pth')
-            torch.save(mlp_policy.state_dict(), '../neural_network/bestMLP.pth')
-            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/bestDeepQ.pth')
+            torch.save(transformer_policy.state_dict(), '../neural_network/rewardTransformer.pth')
+            torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
+            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/rewardDeepQ.pth')
 
 
     if torch.cuda.is_available():
@@ -425,12 +431,12 @@ else:
     transformer_policy = TransformerEncoderDecoder(embed_dim=EMBEDDED_DIM).to(device)
     mlp_policy = MLPPolicyNet(token_dim=EMBEDDED_DIM).to(device)
 
-    PATH_TRANSFORMER = './neural_network/rewardTransformer.pth'
+    PATH_TRANSFORMER = './neural_network/bestTransformer.pth'
     transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    PATH_MLP_POLICY = './neural_network/rewardMLP.pth'
+    PATH_MLP_POLICY = './neural_network/bestMLP.pth'
     mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
 
-    # options = Constraint.CONSTRAINT60.value
+    # options = Constraint.CONSTRAINT60_2.value
     options = None
 
 # 751, 853, 992, 54321

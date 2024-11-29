@@ -390,7 +390,8 @@ if TRAIN:
             if done:
                 break
 
-        validate()
+        if len(replay_buffer) > 5000:
+            validate()
 
     # save the nets
     torch.save(transformer_policy.state_dict(), '../neural_network/lastTransformer.pth')

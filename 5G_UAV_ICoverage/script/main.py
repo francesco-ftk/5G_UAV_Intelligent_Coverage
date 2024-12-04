@@ -28,13 +28,13 @@ TRAIN = True
 # EPS_END = 0.35  # the final value of epsilon
 # EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
 BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
-LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
+LEARNING_RATE = 1e-5  # is the learning rate of the Adam optimizer, should decrease (1e-5)
 BETA = 0.005  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
 sigma = 0.2  # Standard deviation of noise for target policy actions on next states
 c = 0.2  # Clipping bound of noise
 policy_delay = 2  # delay for policy and target nets update
-start_steps = 100000
+# start_steps = 100000
 
 MAX_SPEED_UAV = 55.6  # m/s - about 20 Km/h x 10 secondi
 
@@ -100,31 +100,31 @@ if TRAIN:
             tokens = transformer_policy(connected_gu_positions.unsqueeze(0), uav_info.unsqueeze(0)).squeeze(0)
         time_steps_done += 1
         for i in range(UAV_NUMBER):
-            if time_steps_done < start_steps:
-                if time_steps_done % 2 == 0:
-                    output = np.random.uniform(low=-1.0, high=1.0, size=2)
-                    output = output * MAX_SPEED_UAV
-                    action.append(output)
-                else:
-                    with torch.no_grad():
-                        # return action according to MLP [vx, vy] + epsilon noise
-                        output = mlp_policy(tokens[i])
-                        output = output + torch.randn(2).to(
-                            device)
-                        output = torch.clip(output, -1.0, 1.0)
-                        output = output.cpu().numpy().reshape(2)
-                        output = output * MAX_SPEED_UAV
-                        action.append(output)
-            else:
-                with torch.no_grad():
-                    # return action according to MLP [vx, vy] + epsilon noise
-                    output = mlp_policy(tokens[i])
-                    output = output + torch.randn(2).to(
-                        device)
-                    output = torch.clip(output, -1.0, 1.0)
-                    output = output.cpu().numpy().reshape(2)
-                    output = output * MAX_SPEED_UAV
-                    action.append(output)
+            # if time_steps_done < start_steps:
+            #     if time_steps_done % 2 == 0:
+            #         output = np.random.uniform(low=-1.0, high=1.0, size=2)
+            #         output = output * MAX_SPEED_UAV
+            #         action.append(output)
+            #     else:
+            #         with torch.no_grad():
+            #             # return action according to MLP [vx, vy] + epsilon noise
+            #             output = mlp_policy(tokens[i])
+            #             output = output + torch.randn(2).to(
+            #                 device)
+            #             output = torch.clip(output, -1.0, 1.0)
+            #             output = output.cpu().numpy().reshape(2)
+            #             output = output * MAX_SPEED_UAV
+            #             action.append(output)
+            # else:
+            with torch.no_grad():
+                # return action according to MLP [vx, vy] + epsilon noise
+                output = mlp_policy(tokens[i])
+                output = output + torch.randn(2).to(
+                    device)
+                output = torch.clip(output, -1.0, 1.0)
+                output = output.cpu().numpy().reshape(2)
+                output = output * MAX_SPEED_UAV
+                action.append(output)
         return action
 
 
@@ -368,7 +368,7 @@ if TRAIN:
 
 
     if torch.cuda.is_available():
-        num_episodes = 800
+        num_episodes = 1000
     else:
         num_episodes = 100
 
@@ -448,7 +448,7 @@ else:
     PATH_MLP_POLICY = './neural_network/bestMLP.pth'
     mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
 
-    # options = Constraint.CONSTRAINT60_2.value
+    # options = Constraint.CONSTRAINT80_3.value
     options = None
 
 # 751, 853, 992, 54321

@@ -28,7 +28,7 @@ TRAIN = True
 # EPS_END = 0.35  # the final value of epsilon
 # EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
 BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
-LEARNING_RATE = 1e-5  # is the learning rate of the Adam optimizer, should decrease (1e-5)
+LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
 BETA = 0.005  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
 sigma = 0.2  # Standard deviation of noise for target policy actions on next states
@@ -362,13 +362,13 @@ if TRAIN:
         if reward_sum > BEST_VALIDATION:
             BEST_VALIDATION = reward_sum
             # save the best validation nets
-            torch.save(transformer_policy.state_dict(), '../neural_network/rewardTransformer.pth')
-            torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
-            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/rewardDeepQ.pth')
+            torch.save(transformer_policy.state_dict(), '../neural_network/reward1Transformer.pth')
+            torch.save(mlp_policy.state_dict(), '../neural_network/reward1MLP.pth')
+            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/reward1DeepQ.pth')
 
 
     if torch.cuda.is_available():
-        num_episodes = 1000
+        num_episodes = 800
     else:
         num_episodes = 100
 
@@ -405,9 +405,9 @@ if TRAIN:
             validate()
 
     # save the nets
-    torch.save(transformer_policy.state_dict(), '../neural_network/lastTransformer.pth')
-    torch.save(mlp_policy.state_dict(), '../neural_network/lastMLP.pth')
-    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/lastDeepQ.pth')
+    torch.save(transformer_policy.state_dict(), '../neural_network/last1Transformer.pth')
+    torch.save(mlp_policy.state_dict(), '../neural_network/last1MLP.pth')
+    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/last1DeepQ.pth')
 
     wandb.finish()
     env.close()

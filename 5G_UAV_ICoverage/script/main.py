@@ -23,7 +23,7 @@ from gym_cruising.enums.constraint import Constraint
 
 UAV_NUMBER = 3
 
-TRAIN = True
+TRAIN = False
 # EPS_START = 0.95  # the starting value of epsilon
 # EPS_END = 0.35  # the final value of epsilon
 # EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
@@ -362,9 +362,9 @@ if TRAIN:
         if reward_sum > BEST_VALIDATION:
             BEST_VALIDATION = reward_sum
             # save the best validation nets
-            torch.save(transformer_policy.state_dict(), '../neural_network/reward1Transformer.pth')
-            torch.save(mlp_policy.state_dict(), '../neural_network/reward1MLP.pth')
-            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/reward1DeepQ.pth')
+            torch.save(transformer_policy.state_dict(), '../neural_network/rewardTransformer.pth')
+            torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
+            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/rewardDeepQ.pth')
 
 
     if torch.cuda.is_available():
@@ -405,9 +405,9 @@ if TRAIN:
             validate()
 
     # save the nets
-    torch.save(transformer_policy.state_dict(), '../neural_network/last1Transformer.pth')
-    torch.save(mlp_policy.state_dict(), '../neural_network/last1MLP.pth')
-    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/last1DeepQ.pth')
+    torch.save(transformer_policy.state_dict(), '../neural_network/lastTransformer.pth')
+    torch.save(mlp_policy.state_dict(), '../neural_network/lastMLP.pth')
+    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/lastDeepQ.pth')
 
     wandb.finish()
     env.close()
@@ -435,7 +435,8 @@ else:
 
 
     # For visible check
-    env = env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=2)
+    env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=2)
+    # env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=2)
 
     env.action_space.seed(42)
 
@@ -478,3 +479,42 @@ else:
 
     env.close()
     print("Max reward: ", max_reward, "Mean reward: ", sum(rewards) / len(rewards))
+
+
+    # for j in range(0,10):
+    #     time1 = int(time.perf_counter())
+    #     print("Test ", str(j))
+    #     state, info = env.reset(seed=time1, options=options)
+    #     steps = 1
+    #     rewards = []
+    #     while True:
+    #         actions = select_actions(state)
+    #         next_state, reward, terminated, truncated, _ = env.step(actions)
+    #         rewards.append(reward)
+    #
+    #         if steps == 900:
+    #             truncated = True
+    #         done = terminated or truncated
+    #
+    #         state = next_state
+    #         steps += 1
+    #
+    #         if done:
+    #             break
+    #
+    #     env.close()
+    #
+    # print("Mean reward: ", sum(rewards) / len(rewards))
+
+# BEST addestrato su 2_60_3000 su 10 test 751 2_60_3000 fa 70.17% in 15 minuti per test
+# BEST addestrato su 2_60_3000 su 10 test casuali 2_60_3000 fa 85.71% in 15 minuti per test
+# BEST addestrato su 2_60_3000 su 10 test constraint60_2 fa 98.43% in 15 minuti per test
+
+# 86.63 % se sposto gli uav
+
+# BEST addestrato su 2_60_3000 su 10 test 751 3_80_4000 fa 61.12% in 15 minuti per test
+# BEST addestrato su 2_60_3000 su 10 test casuali 3_80_4000 fa 64.17% in 15 minuti per test
+# BEST addestrato su 2_60_3000 su 10 test constraint80_3 fa 62.83% in 15 minuti per test
+
+# REWARD1 addestrato su 3_80_4000 su 10 test 751 3_80_4000 fa 51.64% in 15 minuti per test
+# REWARD1 addestrato su 3_80_4000 su 10 test constraint80_3 fa 58.31% in 15 minuti per test

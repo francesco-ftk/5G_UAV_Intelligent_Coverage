@@ -23,7 +23,7 @@ from gym_cruising.enums.constraint import Constraint
 
 UAV_NUMBER = 2
 
-TRAIN = False
+TRAIN = True
 # EPS_START = 0.95  # the starting value of epsilon
 # EPS_END = 0.35  # the final value of epsilon
 # EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
@@ -49,7 +49,7 @@ print("DEVICE:", device)
 
 if TRAIN:
 
-    wandb.init(project="5G_UAV_ICoverage_Curriculum_Learning_tdddpg")
+    wandb.init(project="test_tdddpg_Q_overfitting")
 
     env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=3)
     env.action_space.seed(42)
@@ -81,11 +81,11 @@ if TRAIN:
     mlp_target.load_state_dict(mlp_policy.state_dict())
     deep_Q_net_target.load_state_dict(deep_Q_net_policy.state_dict())
 
-    optimizer_transformer = optim.Adam(transformer_policy.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
-    optimizer_mlp = optim.Adam(mlp_policy.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
+    # optimizer_transformer = optim.Adam(transformer_policy.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
+    # optimizer_mlp = optim.Adam(mlp_policy.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
     optimizer_deep_Q = optim.Adam(deep_Q_net_policy.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
 
-    replay_buffer = ReplayMemory(100000)
+    replay_buffer = ReplayMemory(3000)
 
 
     def select_actions_epsilon(state):
@@ -108,9 +108,9 @@ if TRAIN:
             with torch.no_grad():
                 # return action according to MLP [vx, vy] + epsilon noise
                 output = mlp_policy(tokens[i])
-                output = output + torch.randn(2).to(
-                    device)
-                output = torch.clip(output, -1.0, 1.0)
+                # output = output + torch.randn(2).to(
+                #     device)
+                # output = torch.clip(output, -1.0, 1.0)
                 output = output.cpu().numpy().reshape(2)
                 output = output * MAX_SPEED_UAV
                 action.append(output)
@@ -147,12 +147,11 @@ if TRAIN:
     #             action.append(output)
     #     return action
 
-
     def optimize_model():
         global UAV_NUMBER
         global BATCH_SIZE
 
-        if len(replay_buffer) < 5000:
+        if len(replay_buffer) < 2500:
             return
 
         transitions = replay_buffer.sample(BATCH_SIZE)
@@ -211,14 +210,15 @@ if TRAIN:
         with torch.no_grad():
             tokens_batch_next_states_target = transformer_target(next_state_connected_gu_positions_batch,
                                                                  next_state_uav_info_batch)  # [BATCH_SIZE, UAV_NUMBER, 16]
-            tokens_batch_states_target = transformer_target(state_connected_gu_positions_batch,
-                                                            state_uav_info_batch)  # [BATCH_SIZE, UAV_NUMBER, 16]
-        tokens_batch_states = transformer_policy(state_connected_gu_positions_batch,
-                                                 state_uav_info_batch)  # [BATCH_SIZE, UAV_NUMBER, 16]
+            tokens_batch_states = transformer_policy(state_connected_gu_positions_batch,
+                                                     state_uav_info_batch)  # [BATCH_SIZE, UAV_NUMBER, 16]
 
         loss_Q = 0.0
-        loss_policy = 0.0
         loss_transformer = 0.0
+        Q1_batch_mean_first_uav = 0.0
+        Q1_batch_mean_second_uav = 0.0
+        Q2_batch_mean_first_uav = 0.0
+        Q2_batch_mean_second_uav = 0.0
 
         for i in range(UAV_NUMBER):
             # UPDATE Q-FUNCTION
@@ -233,48 +233,44 @@ if TRAIN:
                 clipped_noise = torch.clip(noise, -c, c)
                 output_batch = torch.clip(output_batch + clipped_noise, -1.0, 1.0)
                 output_batch = output_batch * MAX_SPEED_UAV  # actions batch for UAV i-th [BATCH_SIZE, 2]
-                Q1_values_batch, Q2_values_batch = deep_Q_net_target(current_batch_tensor_tokens_next_states_target, output_batch)
-                current_y_batch = rewards_batch + GAMMA * (1.0 - terminated_batch) * torch.min(Q1_values_batch, Q2_values_batch)
+                Q1_values_batch, Q2_values_batch = deep_Q_net_target(current_batch_tensor_tokens_next_states_target,
+                                                                     output_batch)
+                current_y_batch = rewards_batch + GAMMA * (1.0 - terminated_batch) * torch.min(Q1_values_batch,
+                                                                                               Q2_values_batch)
             # slice i-th UAV's tokens [BATCH_SIZE, 1, 16]
             current_batch_tensor_tokens_states = tokens_batch_states[:, i:i + 1, :].squeeze(1)
             # Concatenate i-th UAV's actions along the batch size [BATCH_SIZE, 2]
             current_batch_actions = torch.cat(
                 [action[i].unsqueeze(0) for action in actions_batch],
                 dim=0).to(device)
-            Q1_values_batch, Q2_values_batch = deep_Q_net_policy(current_batch_tensor_tokens_states, current_batch_actions)
+            Q1_values_batch, Q2_values_batch = deep_Q_net_policy(current_batch_tensor_tokens_states,
+                                                                 current_batch_actions)
+            if i == 0:
+                Q1_batch_mean_first_uav = Q1_values_batch.mean()
+                Q2_batch_mean_first_uav = Q2_values_batch.mean()
+            else:
+                Q1_batch_mean_second_uav = Q1_values_batch.mean()
+                Q2_batch_mean_second_uav = Q2_values_batch.mean()
 
             criterion = nn.MSELoss()
             # Optimize Deep Q Net
             loss_Q += criterion(Q1_values_batch, current_y_batch) + criterion(Q2_values_batch, current_y_batch)
 
-            # UPDATE POLICY
-            # slice i-th UAV's tokens [BATCH_SIZE, 1, 16]
-            current_batch_tensor_tokens_states_target = tokens_batch_states_target[:, i:i + 1, :].squeeze(1)
-            output_batch = mlp_policy(current_batch_tensor_tokens_states_target)
-            output_batch = output_batch * MAX_SPEED_UAV  # actions batch for UAV i-th [BATCH_SIZE, 2]
-            Q1_values_batch, Q2_values_batch = deep_Q_net_policy(current_batch_tensor_tokens_states_target, output_batch)
-            loss_policy += -Q1_values_batch.mean()
-            loss_transformer += criterion(current_batch_tensor_tokens_states, current_batch_tensor_tokens_states_target)
-
         # log metrics to wandb
-        wandb.log({"loss_Q": loss_Q, "loss_policy": loss_policy, "loss_transformer": loss_transformer})
+        wandb.log({"loss_Q": loss_Q, "Q1_batch_mean_first": Q1_batch_mean_first_uav, "Q1_batch_mean_second": Q1_batch_mean_second_uav,
+                   "Q2_batch_mean_first": Q2_batch_mean_first_uav, "Q2_batch_mean_second": Q2_batch_mean_second_uav})
 
         # print("LOSS: ", loss)
         optimizer_deep_Q.zero_grad()
-        optimizer_transformer.zero_grad()
+        # optimizer_transformer.zero_grad()
         loss_Q.backward()
         torch.nn.utils.clip_grad_value_(deep_Q_net_policy.parameters(), 100)
-        torch.nn.utils.clip_grad_value_(transformer_policy.parameters(), 100)
+        # torch.nn.utils.clip_grad_value_(transformer_policy.parameters(), 100)
         optimizer_deep_Q.step()
         # Optimize Transformer Net
-        optimizer_transformer.step()
+        # optimizer_transformer.step()
 
         if time_steps_done % policy_delay == 0:
-            # Optimize Policy Net MLP
-            optimizer_mlp.zero_grad()
-            loss_policy.backward()
-            torch.nn.utils.clip_grad_value_(mlp_policy.parameters(), 100)
-            optimizer_mlp.step()
 
             soft_update_target_networks()
 
@@ -282,19 +278,12 @@ if TRAIN:
     def soft_update_target_networks():
         # Soft update of the target network's weights
         # Q' = beta * Q + (1 - beta) * Q'
-        target_net_state_dict = transformer_target.state_dict()
-        policy_net_state_dict = transformer_policy.state_dict()
-        for key in policy_net_state_dict:
-            target_net_state_dict[key] = policy_net_state_dict[key] * BETA + target_net_state_dict[key] * (
-                    1 - BETA)
-        transformer_target.load_state_dict(target_net_state_dict)
-
-        target_net_state_dict = mlp_target.state_dict()
-        policy_net_state_dict = mlp_policy.state_dict()
-        for key in policy_net_state_dict:
-            target_net_state_dict[key] = policy_net_state_dict[key] * BETA + target_net_state_dict[key] * (
-                    1 - BETA)
-        mlp_target.load_state_dict(target_net_state_dict)
+        # target_net_state_dict = transformer_target.state_dict()
+        # policy_net_state_dict = transformer_policy.state_dict()
+        # for key in policy_net_state_dict:
+        #     target_net_state_dict[key] = policy_net_state_dict[key] * BETA + target_net_state_dict[key] * (
+        #             1 - BETA)
+        # transformer_target.load_state_dict(target_net_state_dict)
 
         target_net_state_dict = deep_Q_net_target.state_dict()
         policy_net_state_dict = deep_Q_net_policy.state_dict()
@@ -323,45 +312,45 @@ if TRAIN:
         return action
 
 
-    def validate():
-        global BEST_VALIDATION
-        reward_sum = 0.0
-        options = None
-        seeds = [42, 751, 853, 54321, 1181]
-        for i in seeds:
-            state, info = env.reset(seed=i, options=options)
-            steps = 1
-            while True:
-                actions = select_actions(state)
-                next_state, reward, terminated, truncated, _ = env.step(actions)
-                reward_sum += reward
-
-                if steps == 300:
-                    truncated = True
-                done = terminated or truncated
-
-                state = next_state
-                steps += 1
-
-                if done:
-                    break
-
-        wandb.log({"reward": reward_sum})
-
-        if reward_sum > BEST_VALIDATION:
-            BEST_VALIDATION = reward_sum
-            # save the best validation nets
-            torch.save(transformer_policy.state_dict(), '../neural_network/rewardTransformer.pth')
-            torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
-            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/rewardDeepQ.pth')
+    # def validate():
+    #     global BEST_VALIDATION
+    #     reward_sum = 0.0
+    #     options = None
+    #     seeds = [42, 751, 853, 54321, 1181]
+    #     for i in seeds:
+    #         state, info = env.reset(seed=i, options=options)
+    #         steps = 1
+    #         while True:
+    #             actions = select_actions(state)
+    #             next_state, reward, terminated, truncated, _ = env.step(actions)
+    #             reward_sum += reward
+    #
+    #             if steps == 300:
+    #                 truncated = True
+    #             done = terminated or truncated
+    #
+    #             state = next_state
+    #             steps += 1
+    #
+    #             if done:
+    #                 break
+    #
+    #     wandb.log({"reward": reward_sum})
+    #
+    #     if reward_sum > BEST_VALIDATION:
+    #         BEST_VALIDATION = reward_sum
+    #         # save the best validation nets
+    #         torch.save(transformer_policy.state_dict(), '../neural_network/rewardTransformer.pth')
+    #         torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
+    #         torch.save(deep_Q_net_policy.state_dict(), '../neural_network/rewardDeepQ.pth')
 
 
     if torch.cuda.is_available():
-        num_episodes = 800
+        num_episodes = 1000
     else:
         num_episodes = 100
 
-    print("START UAV COOPERATIVE COVERAGE TRAINING")
+    print("START Q OVERFITTING")
 
     for i_episode in range(0, num_episodes, 1):
         print("Episode: ", i_episode)
@@ -377,7 +366,8 @@ if TRAIN:
             done = terminated or truncated
 
             # Store the transition in memory
-            replay_buffer.push(state, actions, next_state, reward, int(terminated))
+            if len(replay_buffer) < 2500:
+                replay_buffer.push(state, actions, next_state, reward, int(terminated))
             # Move to the next state
             state = next_state
             # Perform one step of the optimization
@@ -387,17 +377,17 @@ if TRAIN:
             if done:
                 break
 
-        if len(replay_buffer) > 5000:
-            validate()
+        # if len(replay_buffer) > 5000:
+        #     validate()
 
     # save the nets
-    torch.save(transformer_policy.state_dict(), '../neural_network/lastTransformer.pth')
-    torch.save(mlp_policy.state_dict(), '../neural_network/lastMLP.pth')
-    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/lastDeepQ.pth')
+    # torch.save(transformer_policy.state_dict(), '../neural_network/lastTransformer.pth')
+    # torch.save(mlp_policy.state_dict(), '../neural_network/lastMLP.pth')
+    # torch.save(deep_Q_net_policy.state_dict(), '../neural_network/lastDeepQ.pth')
 
     wandb.finish()
     env.close()
-    print('TRAINING COMPLETE')
+    print('Q OVERFITTING COMPLETE')
 
 else:
 
@@ -417,11 +407,12 @@ else:
                 output = output.cpu().numpy().reshape(2)
                 output = output * MAX_SPEED_UAV
                 action.append(output)
-        return action
+        return action, tokens
 
 
     # For visible check
-    env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=3)
+    env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=2)
+    # env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=3)
 
     env.action_space.seed(42)
 
@@ -429,10 +420,15 @@ else:
     transformer_policy = TransformerEncoderDecoder(embed_dim=EMBEDDED_DIM).to(device)
     mlp_policy = MLPPolicyNet(token_dim=EMBEDDED_DIM).to(device)
 
+    # CRITIC Q NET policy
+    deep_Q_net_policy = DoubleDeepQNet(state_dim=EMBEDDED_DIM).to(device)
+
     PATH_TRANSFORMER = './neural_network/bestTransformer.pth'
     transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
     PATH_MLP_POLICY = './neural_network/bestMLP.pth'
     mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
+    PATH_DEEP_Q = './neural_network/bestDeepQ.pth'
+    deep_Q_net_policy.load_state_dict(torch.load(PATH_DEEP_Q))
 
     options = Constraint.CONSTRAINT60_2.value
     # options = None
@@ -443,11 +439,33 @@ else:
     steps = 1
     rewards = []
     while True:
-        actions = select_actions(state)
+        actions, tokens = select_actions(state)
         next_state, reward, terminated, truncated, _ = env.step(actions)
-        rewards.append(reward)
 
-        if steps == 900:
+        if steps == 70:
+            print("STEP 70: ")
+            tokens = tokens.unsqueeze(0)
+            token_1 = tokens[:, 0:1, :].squeeze(1).to(device)
+            token_2 = tokens[:, 1:2, :].squeeze(1).to(device)
+
+            action_1 = torch.tensor(actions[0]).unsqueeze(0).to(device)
+            action_2 = torch.tensor(actions[1]).unsqueeze(0).to(device)
+
+            # token [1, 1, EMBEDDED_DIM]
+            # action [1, 2]
+            Q1_value_1, Q2_value_1 = deep_Q_net_policy(token_1, action_1)
+            Q1_value_2, Q2_value_2 = deep_Q_net_policy(token_2, action_2)
+
+            print("Q1_UAV_1: ", Q1_value_1)
+            print("Q2_UAV_1: ", Q2_value_1)
+            print("Q1_UAV_2: ", Q1_value_2)
+            print("Q2_UAV_2: ", Q2_value_2)
+
+        if steps >= 70:
+            rewards.append(reward)
+
+        if steps == 370:
+            print("FINITO STEP 370:")
             truncated = True
         done = terminated or truncated
 
@@ -458,7 +476,7 @@ else:
             break
 
     env.close()
-    print("Mean reward: ", sum(rewards) / len(rewards))
+    print("Sum reward: ", sum(rewards))
 
     # for numerical test
     # env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=2)
@@ -510,3 +528,21 @@ else:
 # BEST addestrato su 2_60_3000 su 10 test 751 3_80_4000 fa 61.12% in 15 minuti per test
 # BEST addestrato su 2_60_3000 su 10 test casuali 3_80_4000 fa 64.17% in 15 minuti per test
 # BEST addestrato su 2_60_3000 su 10 test constraint80_3 fa 62.83% in 15 minuti per test
+
+# 3073
+# STEP 70:
+# Q1_UAV_1:  tensor([[1840.3795]], device='cuda:0', grad_fn=<AddmmBackward0>)
+# Q2_UAV_1:  tensor([[1832.6702]], device='cuda:0', grad_fn=<AddmmBackward0>)
+# Q1_UAV_2:  tensor([[1923.2935]], device='cuda:0', grad_fn=<AddmmBackward0>)
+# Q2_UAV_2:  tensor([[1924.1221]], device='cuda:0', grad_fn=<AddmmBackward0>)
+# FINITO STEP 370:
+# Sum reward:  16450.558153126825
+
+# CONSTRAINED OPTIONS
+# STEP 70:
+# Q1_UAV_1:  tensor([[1913.5941]], device='cuda:0', grad_fn=<AddmmBackward0>)
+# Q2_UAV_1:  tensor([[1918.1088]], device='cuda:0', grad_fn=<AddmmBackward0>)
+# Q1_UAV_2:  tensor([[1899.3700]], device='cuda:0', grad_fn=<AddmmBackward0>)
+# Q2_UAV_2:  tensor([[1904.9696]], device='cuda:0', grad_fn=<AddmmBackward0>)
+# FINITO STEP 370:
+# Sum reward:  17881.513442431326

@@ -393,7 +393,7 @@ if TRAIN:
             # Move to the next state
             state = next_state
             # Perform one step of the optimization
-            # optimize_model()
+            optimize_model()
             steps += 1
 
             if done:

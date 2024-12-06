@@ -21,7 +21,7 @@ from gym_cruising.neural_network.deep_Q_net import DeepQNet, DoubleDeepQNet
 from gym_cruising.neural_network.transformer_encoder_decoder import TransformerEncoderDecoder
 from gym_cruising.enums.constraint import Constraint
 
-UAV_NUMBER = 3
+UAV_NUMBER = 2
 
 TRAIN = False
 # EPS_START = 0.95  # the starting value of epsilon
@@ -51,7 +51,7 @@ if TRAIN:
 
     wandb.init(project="5G_UAV_ICoverage_Curriculum_Learning_tdddpg")
 
-    env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=2)
+    env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=3)
     env.action_space.seed(42)
 
     # ACTOR POLICY NET policy
@@ -101,20 +101,9 @@ if TRAIN:
         time_steps_done += 1
         for i in range(UAV_NUMBER):
             # if time_steps_done < start_steps:
-            #     if time_steps_done % 2 == 0:
-            #         output = np.random.uniform(low=-1.0, high=1.0, size=2)
-            #         output = output * MAX_SPEED_UAV
-            #         action.append(output)
-            #     else:
-            #         with torch.no_grad():
-            #             # return action according to MLP [vx, vy] + epsilon noise
-            #             output = mlp_policy(tokens[i])
-            #             output = output + torch.randn(2).to(
-            #                 device)
-            #             output = torch.clip(output, -1.0, 1.0)
-            #             output = output.cpu().numpy().reshape(2)
-            #             output = output * MAX_SPEED_UAV
-            #             action.append(output)
+            #   output = np.random.uniform(low=-1.0, high=1.0, size=2)
+            #   output = output * MAX_SPEED_UAV
+            #   action.append(output)
             # else:
             with torch.no_grad():
                 # return action according to MLP [vx, vy] + epsilon noise
@@ -377,9 +366,6 @@ if TRAIN:
     for i_episode in range(0, num_episodes, 1):
         print("Episode: ", i_episode)
         options = None
-        # Good example with GU in cluster
-        # if i_episode % 25 == 0:
-        #     options = Constraint.CONSTRAINT60.value
         state, info = env.reset(seed=int(time.perf_counter()), options=options)
         steps = 1
         while True:
@@ -435,8 +421,7 @@ else:
 
 
     # For visible check
-    env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=2)
-    # env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=2)
+    env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=3)
 
     env.action_space.seed(42)
 
@@ -449,22 +434,17 @@ else:
     PATH_MLP_POLICY = './neural_network/bestMLP.pth'
     mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
 
-    # options = Constraint.CONSTRAINT80_3.value
-    options = None
-
-# 751, 853, 992, 54321
+    options = Constraint.CONSTRAINT60_2.value
+    # options = None
 
     time = int(time.perf_counter())
     print("Time: ", time)
     state, info = env.reset(seed=time, options=options)
     steps = 1
-    max_reward = 0.0
     rewards = []
     while True:
         actions = select_actions(state)
         next_state, reward, terminated, truncated, _ = env.step(actions)
-        if reward > max_reward:
-            max_reward = reward
         rewards.append(reward)
 
         if steps == 900:
@@ -478,13 +458,30 @@ else:
             break
 
     env.close()
-    print("Max reward: ", max_reward, "Mean reward: ", sum(rewards) / len(rewards))
+    print("Mean reward: ", sum(rewards) / len(rewards))
 
-
+    # for numerical test
+    # env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=2)
+    #
+    # env.action_space.seed(42)
+    #
+    # # ACTOR POLICY NET policy
+    # transformer_policy = TransformerEncoderDecoder(embed_dim=EMBEDDED_DIM).to(device)
+    # mlp_policy = MLPPolicyNet(token_dim=EMBEDDED_DIM).to(device)
+    #
+    # PATH_TRANSFORMER = './neural_network/bestTransformer.pth'
+    # transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
+    # PATH_MLP_POLICY = './neural_network/bestMLP.pth'
+    # mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
+    #
+    # # options = Constraint.CONSTRAINT80_3.value
+    # options = None
+    #
+    # time = int(time.perf_counter())
+    # print("Time: ", time)
     # for j in range(0,10):
-    #     time1 = int(time.perf_counter())
     #     print("Test ", str(j))
-    #     state, info = env.reset(seed=time1, options=options)
+    #     state, info = env.reset(seed=time, options=options)
     #     steps = 1
     #     rewards = []
     #     while True:
@@ -510,11 +507,6 @@ else:
 # BEST addestrato su 2_60_3000 su 10 test casuali 2_60_3000 fa 85.71% in 15 minuti per test
 # BEST addestrato su 2_60_3000 su 10 test constraint60_2 fa 98.43% in 15 minuti per test
 
-# 86.63 % se sposto gli uav
-
 # BEST addestrato su 2_60_3000 su 10 test 751 3_80_4000 fa 61.12% in 15 minuti per test
 # BEST addestrato su 2_60_3000 su 10 test casuali 3_80_4000 fa 64.17% in 15 minuti per test
 # BEST addestrato su 2_60_3000 su 10 test constraint80_3 fa 62.83% in 15 minuti per test
-
-# REWARD1 addestrato su 3_80_4000 su 10 test 751 3_80_4000 fa 51.64% in 15 minuti per test
-# REWARD1 addestrato su 3_80_4000 su 10 test constraint80_3 fa 58.31% in 15 minuti per test

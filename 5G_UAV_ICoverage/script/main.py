@@ -23,7 +23,7 @@ from gym_cruising.enums.constraint import Constraint
 
 UAV_NUMBER = 2
 
-TRAIN = False
+TRAIN = True
 # EPS_START = 0.95  # the starting value of epsilon
 # EPS_END = 0.35  # the final value of epsilon
 # EPS_DECAY = 60000  # controls the rate of exponential decay of epsilon, higher means a slower decay
@@ -31,6 +31,7 @@ BATCH_SIZE = 256  # is the number of transitions random sampled from the replay 
 LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
 BETA = 0.005  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
+sigma_policy = 0.3  # Standard deviation of noise for policy actor actions on current state
 sigma = 0.2  # Standard deviation of noise for target policy actions on next states
 c = 0.2  # Clipping bound of noise
 policy_delay = 2  # delay for policy and target nets update
@@ -62,12 +63,12 @@ if TRAIN:
     deep_Q_net_policy = DoubleDeepQNet(state_dim=EMBEDDED_DIM).to(device)
 
     # COMMENT FOR INITIAL TRAINING
-    PATH_TRANSFORMER = '../neural_network/bestTransformer.pth'
-    transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    PATH_MLP_POLICY = '../neural_network/bestMLP.pth'
-    mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
-    PATH_DEEP_Q = '../neural_network/bestDeepQ.pth'
-    deep_Q_net_policy.load_state_dict(torch.load(PATH_DEEP_Q))
+    # PATH_TRANSFORMER = '../neural_network/bestTransformer.pth'
+    # transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
+    # PATH_MLP_POLICY = '../neural_network/bestMLP.pth'
+    # mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
+    # PATH_DEEP_Q = '../neural_network/bestDeepQ.pth'
+    # deep_Q_net_policy.load_state_dict(torch.load(PATH_DEEP_Q))
 
     # ACTOR POLICY NET target
     transformer_target = TransformerEncoderDecoder(embed_dim=EMBEDDED_DIM).to(device)
@@ -108,11 +109,12 @@ if TRAIN:
             with torch.no_grad():
                 # return action according to MLP [vx, vy] + epsilon noise
                 output = mlp_policy(tokens[i])
-                output = output + torch.randn(2).to(
+                output = output + (torch.randn(2) * sigma_policy).to(
                     device)
                 output = torch.clip(output, -1.0, 1.0)
                 output = output.cpu().numpy().reshape(2)
                 output = output * MAX_SPEED_UAV
+                print(output)
                 action.append(output)
         return action
 
@@ -243,10 +245,12 @@ if TRAIN:
                 dim=0).to(device)
             Q1_values_batch, Q2_values_batch = deep_Q_net_policy(current_batch_tensor_tokens_states, current_batch_actions)
 
-            criterion = nn.MSELoss()
+            # criterion = nn.MSELoss()
+            criterion = torch.nn.HuberLoss()
             # Optimize Deep Q Net
             loss_Q += criterion(Q1_values_batch, current_y_batch) + criterion(Q2_values_batch, current_y_batch)
 
+            criterion = nn.MSELoss()
             # UPDATE POLICY
             # slice i-th UAV's tokens [BATCH_SIZE, 1, 16]
             current_batch_tensor_tokens_states_target = tokens_batch_states_target[:, i:i + 1, :].squeeze(1)
@@ -381,7 +385,7 @@ if TRAIN:
             # Move to the next state
             state = next_state
             # Perform one step of the optimization
-            optimize_model()
+            # optimize_model()
             steps += 1
 
             if done:

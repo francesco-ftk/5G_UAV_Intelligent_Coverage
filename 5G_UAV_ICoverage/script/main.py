@@ -114,7 +114,6 @@ if TRAIN:
                 output = torch.clip(output, -1.0, 1.0)
                 output = output.cpu().numpy().reshape(2)
                 output = output * MAX_SPEED_UAV
-                print(output)
                 action.append(output)
         return action
 

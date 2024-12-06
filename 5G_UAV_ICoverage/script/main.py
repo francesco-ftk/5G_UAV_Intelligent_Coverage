@@ -221,6 +221,8 @@ if TRAIN:
         loss_Q = 0.0
         loss_policy = 0.0
         loss_transformer = 0.0
+        Q1_batch_mean_first_uav = 0.0
+        Q1_batch_mean_second_uav = 0.0
 
         for i in range(UAV_NUMBER):
             # UPDATE Q-FUNCTION
@@ -245,6 +247,11 @@ if TRAIN:
                 dim=0).to(device)
             Q1_values_batch, Q2_values_batch = deep_Q_net_policy(current_batch_tensor_tokens_states, current_batch_actions)
 
+            if i == 0:
+                Q1_batch_mean_first_uav = Q1_values_batch.mean()
+            else:
+                Q1_batch_mean_second_uav = Q1_values_batch.mean()
+
             # criterion = nn.MSELoss()
             criterion = torch.nn.HuberLoss()
             # Optimize Deep Q Net
@@ -261,7 +268,8 @@ if TRAIN:
             loss_transformer += criterion(current_batch_tensor_tokens_states, current_batch_tensor_tokens_states_target)
 
         # log metrics to wandb
-        wandb.log({"loss_Q": loss_Q, "loss_policy": loss_policy, "loss_transformer": loss_transformer})
+        wandb.log({"loss_Q": loss_Q, "loss_policy": loss_policy, "loss_transformer": loss_transformer,
+                   "Q1_batch_mean_first": Q1_batch_mean_first_uav, "Q1_batch_mean_second_uav": Q1_batch_mean_second_uav})
 
         # print("LOSS: ", loss)
         optimizer_deep_Q.zero_grad()

@@ -50,7 +50,7 @@ print("DEVICE:", device)
 
 if TRAIN:
 
-    wandb.init(project="5G_UAV_ICoverage_Curriculum_Learning_tdddpg")
+    wandb.init(project="5G_UAV_ICoverage_Curriculum_Learning_tdddpg_fix")
 
     env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=3)
     env.action_space.seed(42)
@@ -361,7 +361,7 @@ if TRAIN:
 
 
     if torch.cuda.is_available():
-        num_episodes = 800
+        num_episodes = 1000
     else:
         num_episodes = 100
 

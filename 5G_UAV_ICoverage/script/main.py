@@ -31,11 +31,11 @@ BATCH_SIZE = 256  # is the number of transitions random sampled from the replay 
 LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
 BETA = 0.005  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
-sigma_policy = 0.3  # Standard deviation of noise for policy actor actions on current state
+sigma_policy = 0.4  # Standard deviation of noise for policy actor actions on current state
 sigma = 0.2  # Standard deviation of noise for target policy actions on next states
 c = 0.2  # Clipping bound of noise
 policy_delay = 2  # delay for policy and target nets update
-# start_steps = 100000
+start_steps = 15000
 
 MAX_SPEED_UAV = 55.6  # m/s - about 20 Km/h x 10 secondi
 
@@ -101,20 +101,20 @@ if TRAIN:
             tokens = transformer_policy(connected_gu_positions.unsqueeze(0), uav_info.unsqueeze(0)).squeeze(0)
         time_steps_done += 1
         for i in range(UAV_NUMBER):
-            # if time_steps_done < start_steps:
-            #   output = np.random.uniform(low=-1.0, high=1.0, size=2)
-            #   output = output * MAX_SPEED_UAV
-            #   action.append(output)
-            # else:
-            with torch.no_grad():
-                # return action according to MLP [vx, vy] + epsilon noise
-                output = mlp_policy(tokens[i])
-                output = output + (torch.randn(2) * sigma_policy).to(
-                    device)
-                output = torch.clip(output, -1.0, 1.0)
-                output = output.cpu().numpy().reshape(2)
-                output = output * MAX_SPEED_UAV
-                action.append(output)
+            if time_steps_done < start_steps:
+               output = np.random.uniform(low=-1.0, high=1.0, size=2)
+               output = output * MAX_SPEED_UAV
+               action.append(output)
+            else:
+                with torch.no_grad():
+                    # return action according to MLP [vx, vy] + epsilon noise
+                    output = mlp_policy(tokens[i])
+                    output = output + (torch.randn(2) * sigma_policy).to(
+                        device)
+                    output = torch.clip(output, -1.0, 1.0)
+                    output = output.cpu().numpy().reshape(2)
+                    output = output * MAX_SPEED_UAV
+                    action.append(output)
         return action
 
 
@@ -270,12 +270,11 @@ if TRAIN:
         wandb.log({"loss_Q": loss_Q, "loss_policy": loss_policy, "loss_transformer": loss_transformer,
                    "Q1_batch_mean_first": Q1_batch_mean_first_uav, "Q1_batch_mean_second_uav": Q1_batch_mean_second_uav})
 
-        # print("LOSS: ", loss)
         optimizer_deep_Q.zero_grad()
         optimizer_transformer.zero_grad()
         loss_Q.backward()
-        torch.nn.utils.clip_grad_value_(deep_Q_net_policy.parameters(), 100)
-        torch.nn.utils.clip_grad_value_(transformer_policy.parameters(), 100)
+        torch.nn.utils.clip_grad_norm_(deep_Q_net_policy.parameters(), 5) # clip_grad_value_
+        torch.nn.utils.clip_grad_norm_(transformer_policy.parameters(), 5) # clip_grad_value_
         optimizer_deep_Q.step()
         # Optimize Transformer Net
         optimizer_transformer.step()
@@ -284,7 +283,7 @@ if TRAIN:
             # Optimize Policy Net MLP
             optimizer_mlp.zero_grad()
             loss_policy.backward()
-            torch.nn.utils.clip_grad_value_(mlp_policy.parameters(), 100)
+            torch.nn.utils.clip_grad_norm_(mlp_policy.parameters(), 5) # clip_grad_value_
             optimizer_mlp.step()
 
             soft_update_target_networks()
@@ -362,13 +361,13 @@ if TRAIN:
         if reward_sum > BEST_VALIDATION:
             BEST_VALIDATION = reward_sum
             # save the best validation nets
-            torch.save(transformer_policy.state_dict(), '../neural_network/rewardTransformer.pth')
-            torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
-            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/rewardDeepQ.pth')
+            torch.save(transformer_policy.state_dict(), '../neural_network/reward1Transformer.pth')
+            torch.save(mlp_policy.state_dict(), '../neural_network/reward1MLP.pth')
+            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/reward1DeepQ.pth')
 
 
     if torch.cuda.is_available():
-        num_episodes = 1000
+        num_episodes = 2000
     else:
         num_episodes = 100
 
@@ -402,9 +401,9 @@ if TRAIN:
             validate()
 
     # save the nets
-    torch.save(transformer_policy.state_dict(), '../neural_network/lastTransformer.pth')
-    torch.save(mlp_policy.state_dict(), '../neural_network/lastMLP.pth')
-    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/lastDeepQ.pth')
+    torch.save(transformer_policy.state_dict(), '../neural_network/last1Transformer.pth')
+    torch.save(mlp_policy.state_dict(), '../neural_network/last1MLP.pth')
+    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/last1DeepQ.pth')
 
     wandb.finish()
     env.close()

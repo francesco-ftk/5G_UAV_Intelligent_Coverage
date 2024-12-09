@@ -327,9 +327,9 @@ if TRAIN:
         if reward_sum > BEST_VALIDATION:
             BEST_VALIDATION = reward_sum
             # save the best validation nets
-            torch.save(transformer_policy.state_dict(), '../neural_network/fix 2/rewardTransformer.pth')
-            torch.save(mlp_policy.state_dict(), '../neural_network/fix 2/rewardMLP.pth')
-            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/fix 2/rewardDeepQ.pth')
+            torch.save(transformer_policy.state_dict(), '../neural_network/rewardTransformer.pth')
+            torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
+            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/rewardDeepQ.pth')
 
 
     if torch.cuda.is_available():
@@ -368,8 +368,8 @@ if TRAIN:
 
     # save the nets
     torch.save(transformer_policy.state_dict(), '../neural_network/lastTransformer.pth')
-    torch.save(mlp_policy.state_dict(), '../neural_network/fix 2/lastMLP.pth')
-    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/fix 2/lastDeepQ.pth')
+    torch.save(mlp_policy.state_dict(), '../neural_network/lastMLP.pth')
+    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/lastDeepQ.pth')
 
     wandb.finish()
     env.close()

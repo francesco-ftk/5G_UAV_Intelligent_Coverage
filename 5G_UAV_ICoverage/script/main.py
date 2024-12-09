@@ -397,7 +397,47 @@ else:
 
 
     # For visible check
-    # env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=3)
+    env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=3)
+
+    env.action_space.seed(42)
+
+    # ACTOR POLICY NET policy
+    transformer_policy = TransformerEncoderDecoder(embed_dim=EMBEDDED_DIM).to(device)
+    mlp_policy = MLPPolicyNet(token_dim=EMBEDDED_DIM).to(device)
+
+    # PATH_TRANSFORMER = './neural_network/rewardTransformer.pth'
+    # transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
+    # PATH_MLP_POLICY = './neural_network/rewardMLP.pth'
+    # mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
+
+    # options = Constraint.CONSTRAINT60_2.value
+    options = None
+
+    time = int(time.perf_counter())
+    print("Time: ", time)
+    state, info = env.reset(seed=time, options=options)
+    steps = 1
+    rewards = []
+    while True:
+        actions = select_actions(state)
+        next_state, reward, terminated, truncated, _ = env.step(actions)
+        rewards.append(reward)
+
+        if steps == 900:
+            truncated = True
+        done = terminated or truncated
+
+        state = next_state
+        steps += 1
+
+        if done:
+            break
+
+    env.close()
+    print("Mean reward: ", sum(rewards) / len(rewards))
+
+    # for numerical test
+    # env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=3)
     #
     # env.action_space.seed(42)
     #
@@ -410,73 +450,33 @@ else:
     # PATH_MLP_POLICY = './neural_network/rewardMLP.pth'
     # mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
     #
-    # options = Constraint.CONSTRAINT60_2.value
-    # # options = None
+    # # options = Constraint.CONSTRAINT60_2.value
+    # options = None
     #
-    # time = int(time.perf_counter())
-    # print("Time: ", time)
-    # state, info = env.reset(seed=time, options=options)
-    # steps = 1
+    # seeds = [43, 211, 17, 1243, 97, 23, 57, 1111, 2013, 571]
     # rewards = []
-    # while True:
-    #     actions = select_actions(state)
-    #     next_state, reward, terminated, truncated, _ = env.step(actions)
-    #     rewards.append(reward)
+    # for j in seeds:
+    #     print("Test ", str(j))
+    #     state, info = env.reset(seed=j, options=options)
+    #     steps = 1
+    #     while True:
+    #         actions = select_actions(state)
+    #         next_state, reward, terminated, truncated, _ = env.step(actions)
+    #         rewards.append(reward)
     #
-    #     if steps == 900:
-    #         truncated = True
-    #     done = terminated or truncated
+    #         if steps == 900:
+    #             truncated = True
+    #         done = terminated or truncated
     #
-    #     state = next_state
-    #     steps += 1
+    #         state = next_state
+    #         steps += 1
     #
-    #     if done:
-    #         break
+    #         if done:
+    #             break
     #
-    # env.close()
+    #     env.close()
+    #
     # print("Mean reward: ", sum(rewards) / len(rewards))
-
-    # for numerical test
-    env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=3)
-
-    env.action_space.seed(42)
-
-    # ACTOR POLICY NET policy
-    transformer_policy = TransformerEncoderDecoder(embed_dim=EMBEDDED_DIM).to(device)
-    mlp_policy = MLPPolicyNet(token_dim=EMBEDDED_DIM).to(device)
-
-    PATH_TRANSFORMER = './neural_network/rewardTransformer.pth'
-    transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    PATH_MLP_POLICY = './neural_network/rewardMLP.pth'
-    mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
-
-    # options = Constraint.CONSTRAINT60_2.value
-    options = None
-
-    seeds = [43, 211, 17, 1243, 97, 23, 57, 1111, 2013, 571]
-    rewards = []
-    for j in seeds:
-        print("Test ", str(j))
-        state, info = env.reset(seed=j, options=options)
-        steps = 1
-        while True:
-            actions = select_actions(state)
-            next_state, reward, terminated, truncated, _ = env.step(actions)
-            rewards.append(reward)
-
-            if steps == 900:
-                truncated = True
-            done = terminated or truncated
-
-            state = next_state
-            steps += 1
-
-            if done:
-                break
-
-        env.close()
-
-    print("Mean reward: ", sum(rewards) / len(rewards))
 
 # BEST addestrato su 2_60_3000 su 10 test 751 2_60_3000 fa 70.17% in 15 minuti per test
 # BEST addestrato su 2_60_3000 su 10 test casuali 2_60_3000 fa 85.71% in 15 minuti per test

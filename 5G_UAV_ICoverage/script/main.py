@@ -23,7 +23,7 @@ from gym_cruising.enums.constraint import Constraint
 
 UAV_NUMBER = 2
 
-TRAIN = False
+TRAIN = True
 BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
 LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
 BETA = 0.005  # is the update rate of the target network
@@ -327,13 +327,13 @@ if TRAIN:
         if reward_sum > BEST_VALIDATION:
             BEST_VALIDATION = reward_sum
             # save the best validation nets
-            torch.save(transformer_policy.state_dict(), '../neural_network/fix 2/rewardTransformer.pth')
-            torch.save(mlp_policy.state_dict(), '../neural_network/fix 2/rewardMLP.pth')
-            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/fix 2/rewardDeepQ.pth')
+            torch.save(transformer_policy.state_dict(), '../neural_network/rewardTransformer.pth')
+            torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
+            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/rewardDeepQ.pth')
 
 
     if torch.cuda.is_available():
-        num_episodes = 4000
+        num_episodes = 2000
     else:
         num_episodes = 100
 
@@ -341,7 +341,10 @@ if TRAIN:
 
     for i_episode in range(0, num_episodes, 1):
         print("Episode: ", i_episode)
-        options = None
+        if time_steps_done % policy_delay == 0:
+            options = None
+        else:
+            options = 1
         state, info = env.reset(seed=int(time.perf_counter()), options=options)
         steps = 1
         while True:
@@ -368,8 +371,8 @@ if TRAIN:
 
     # save the nets
     torch.save(transformer_policy.state_dict(), '../neural_network/lastTransformer.pth')
-    torch.save(mlp_policy.state_dict(), '../neural_network/fix 2/lastMLP.pth')
-    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/fix 2/lastDeepQ.pth')
+    torch.save(mlp_policy.state_dict(), '../neural_network/lastMLP.pth')
+    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/lastDeepQ.pth')
 
     wandb.finish()
     env.close()

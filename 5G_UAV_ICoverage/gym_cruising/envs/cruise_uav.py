@@ -60,6 +60,8 @@ class CruiseUAV(Cruise):
     low_observation: float
     high_observation: float
 
+    variance = 30000
+
     gu_covered = 0
     last_RCR = None
     reward_gamma = 0.7
@@ -299,10 +301,13 @@ class CruiseUAV(Cruise):
     def init_environment(self, options: Optional[dict] = None) -> None:
         if options is None:
             self.init_uav()
-            self.init_gu()
+            self.init_gu_clustered()
+            # self.init_gu()
         else:
-            self.init_uav_constrained(options[0])
-            self.init_gu_contstrained(options[1])
+            # self.init_uav_constrained(options[0])
+            # self.init_gu_contstrained(options[1])
+            self.init_uav()
+            self.init_gu()
         self.calculate_PathLoss_with_Markov_Chain()
         self.calculate_SINR()
         self.check_connection_and_coverage_UAV_GU()
@@ -338,6 +343,34 @@ class CruiseUAV(Cruise):
             gu = GU(Point(x_coordinate, y_coordinate))
             self.initialize_channel(gu)
             self.gu.append(gu)
+
+    def init_gu_clustered(self) -> None:
+        std_dev = np.sqrt(self.variance)
+        area = self.np_random.choice(self.track.spawn_area)
+        gu_for_cluster = int(self.STARTING_GU_NUMBER / self.UAV_NUMBER)
+        for i in range(self.UAV_NUMBER):
+            mean_x = self.np_random.uniform(area[0][0] + 250, area[0][1] - 250)
+            mean_y = self.np_random.uniform(area[0][0] + 250, area[0][1] - 250)
+            for j in range(gu_for_cluster):
+                repeat = True
+                while repeat:
+                    # Generazione del numero casuale
+                    x_coordinate = np.random.normal(mean_x, std_dev)
+                    y_coordinate = np.random.normal(mean_y, std_dev)
+                    position = Point(x_coordinate, y_coordinate)
+                    if position.is_in_area(area):
+                        repeat = False
+                gu = GU(position)
+                self.initialize_channel(gu)
+                self.gu.append(gu)
+        for i in range(0, 5):
+            x_coordinate = self.np_random.uniform(area[0][0], area[0][1])
+            y_coordinate = self.np_random.uniform(area[1][0], area[1][1])
+            gu = GU(Point(x_coordinate, y_coordinate))
+            self.initialize_channel(gu)
+            self.gu.append(gu)
+        self.gu_number += 5
+        self.disappear_gu_prob = self.SPAWN_GU_PROB * 4 / self.gu_number
 
     def init_uav_constrained(self, options):
         for i in range(0, self.UAV_NUMBER):

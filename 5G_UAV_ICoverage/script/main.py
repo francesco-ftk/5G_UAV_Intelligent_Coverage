@@ -303,9 +303,30 @@ if TRAIN:
         global BEST_VALIDATION
         reward_sum = 0.0
         options = None
-        seeds = [42, 751, 853, 54321, 1181]
+        # seeds = [42, 751, 853, 54321, 1181]
+        seeds = [751, 54321]
         for i in seeds:
             state, info = env.reset(seed=i, options=options)
+            steps = 1
+            while True:
+                actions = select_actions(state)
+                next_state, reward, terminated, truncated, _ = env.step(actions)
+                reward_sum += reward
+
+                if steps == 300:
+                    truncated = True
+                done = terminated or truncated
+
+                state = next_state
+                steps += 1
+
+                if done:
+                    break
+
+        options = 1
+        seeds = [47, 513, 320]
+        for j in seeds:
+            state, info = env.reset(seed=j, options=options)
             steps = 1
             while True:
                 actions = select_actions(state)

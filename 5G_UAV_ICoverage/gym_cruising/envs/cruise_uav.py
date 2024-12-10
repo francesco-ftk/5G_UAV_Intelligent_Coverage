@@ -72,6 +72,9 @@ class CruiseUAV(Cruise):
         self.low_observation = float(spawn_area[0][0] - self.MAX_SPEED_UAV)
         self.high_observation = float(spawn_area[0][1] + self.MAX_SPEED_UAV)
 
+        self.reset_observation_action_space()
+
+    def reset_observation_action_space(self):
         self.observation_space = Box(low=self.low_observation,
                                      high=self.high_observation,
                                      shape=((self.UAV_NUMBER * 2) + self.gu_covered, 2),
@@ -82,10 +85,13 @@ class CruiseUAV(Cruise):
                                 shape=(self.UAV_NUMBER, 2),
                                 dtype=np.float64)
 
-    def reset(self, seed=None, options=None) -> Tuple[np.ndarray, dict]:
+    def reset(self, seed=None, options: Optional[dict] = None) -> Tuple[np.ndarray, dict]:
         self.uav = []
         self.gu = []
         # self.reward_window = []
+        self.UAV_NUMBER = options[0]["uav"]
+        self.STARTING_GU_NUMBER = options[0]["gu"]
+        self.reset_observation_action_space()
         self.gu_number = self.STARTING_GU_NUMBER
         self.disappear_gu_prob = self.SPAWN_GU_PROB * 4 / self.gu_number
         self.gu_covered = 0
@@ -301,8 +307,8 @@ class CruiseUAV(Cruise):
             self.init_uav()
             self.init_gu()
         else:
-            self.init_uav_constrained(options[0])
-            self.init_gu_contstrained(options[1])
+            self.init_uav_constrained(options[1])
+            self.init_gu_contstrained(options[2])
         self.calculate_PathLoss_with_Markov_Chain()
         self.calculate_SINR()
         self.check_connection_and_coverage_UAV_GU()

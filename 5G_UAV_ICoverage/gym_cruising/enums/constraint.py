@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class Constraint(Enum):
+class Constraint(Enum):  # TODO add uav e gu
     CONSTRAINT80_3 = ({
                           "0": [1520.07, 2040.18],
                           "1": [3150.17, 1570.72],

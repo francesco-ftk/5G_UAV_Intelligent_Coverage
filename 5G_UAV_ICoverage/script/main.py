@@ -279,6 +279,20 @@ if TRAIN:
                     1 - BETA)
         deep_Q_net_target.load_state_dict(target_net_state_dict)
 
+    def get_set_up():
+        global UAV_NUMBER
+        UAV_NUMBER = random.randint(1, 3)
+        if UAV_NUMBER == 1:
+            starting_gu_number = random.randint(20, 40)
+        if UAV_NUMBER == 2:
+            starting_gu_number = random.randint(60, 80)
+        else:
+            starting_gu_number = random.randint(100, 120)
+        options = ({
+            "uav": UAV_NUMBER,
+            "gu": starting_gu_number
+        })
+        return options
 
     def select_actions(state):
         global UAV_NUMBER
@@ -341,7 +355,7 @@ if TRAIN:
 
     for i_episode in range(0, num_episodes, 1):
         print("Episode: ", i_episode)
-        options = None
+        options = get_set_up()
         state, info = env.reset(seed=int(time.perf_counter()), options=options)
         steps = 1
         while True:

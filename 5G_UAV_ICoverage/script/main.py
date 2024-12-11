@@ -49,7 +49,7 @@ if TRAIN:
 
     wandb.init(project="mix")
 
-    env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=3)
+    env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=1)
     env.action_space.seed(42)
 
     # ACTOR POLICY NET policy
@@ -99,9 +99,9 @@ if TRAIN:
         time_steps_done += 1
         for i in range(UAV_NUMBER):
             if time_steps_done < start_steps:
-               output = np.random.uniform(low=-1.0, high=1.0, size=2)
-               output = output * MAX_SPEED_UAV
-               action.append(output)
+                output = np.random.uniform(low=-1.0, high=1.0, size=2)
+                output = output * MAX_SPEED_UAV
+                action.append(output)
             else:
                 with torch.no_grad():
                     # return action according to MLP [vx, vy] + epsilon noise
@@ -203,15 +203,18 @@ if TRAIN:
                 clipped_noise = torch.clip(noise, -c, c)
                 output_batch = torch.clip(output_batch + clipped_noise, -1.0, 1.0)
                 output_batch = output_batch * MAX_SPEED_UAV  # actions batch for UAV i-th [BATCH_SIZE, 2]
-                Q1_values_batch, Q2_values_batch = deep_Q_net_target(current_batch_tensor_tokens_next_states_target, output_batch)
-                current_y_batch = rewards_batch + GAMMA * (1.0 - terminated_batch) * torch.min(Q1_values_batch, Q2_values_batch)
+                Q1_values_batch, Q2_values_batch = deep_Q_net_target(current_batch_tensor_tokens_next_states_target,
+                                                                     output_batch)
+                current_y_batch = rewards_batch + GAMMA * (1.0 - terminated_batch) * torch.min(Q1_values_batch,
+                                                                                               Q2_values_batch)
             # slice i-th UAV's tokens [BATCH_SIZE, 1, EMBEDDED_DIM]
             current_batch_tensor_tokens_states = tokens_batch_states[:, i:i + 1, :].squeeze(1)
             # Concatenate i-th UAV's actions along the batch size [BATCH_SIZE, 2]
             current_batch_actions = torch.cat(
                 [action[i].unsqueeze(0) for action in actions_batch],
                 dim=0).to(device)
-            Q1_values_batch, Q2_values_batch = deep_Q_net_policy(current_batch_tensor_tokens_states, current_batch_actions)
+            Q1_values_batch, Q2_values_batch = deep_Q_net_policy(current_batch_tensor_tokens_states,
+                                                                 current_batch_actions)
 
             if i == 0:
                 Q1_batch_mean_first_uav = Q1_values_batch.mean()
@@ -229,19 +232,21 @@ if TRAIN:
             current_batch_tensor_tokens_states_target = tokens_batch_states_target[:, i:i + 1, :].squeeze(1)
             output_batch = mlp_policy(current_batch_tensor_tokens_states_target)
             output_batch = output_batch * MAX_SPEED_UAV  # actions batch for UAV i-th [BATCH_SIZE, 2]
-            Q1_values_batch, Q2_values_batch = deep_Q_net_policy(current_batch_tensor_tokens_states_target, output_batch)
+            Q1_values_batch, Q2_values_batch = deep_Q_net_policy(current_batch_tensor_tokens_states_target,
+                                                                 output_batch)
             loss_policy += -Q1_values_batch.mean()
             loss_transformer += criterion(current_batch_tensor_tokens_states, current_batch_tensor_tokens_states_target)
 
         # log metrics to wandb
         wandb.log({"loss_Q": loss_Q, "loss_policy": loss_policy, "loss_transformer": loss_transformer,
-                   "Q1_batch_mean_first": Q1_batch_mean_first_uav, "Q1_batch_mean_second_uav": Q1_batch_mean_second_uav})
+                   "Q1_batch_mean_first": Q1_batch_mean_first_uav,
+                   "Q1_batch_mean_second_uav": Q1_batch_mean_second_uav})
 
         optimizer_deep_Q.zero_grad()
         optimizer_transformer.zero_grad()
         loss_Q.backward()
-        torch.nn.utils.clip_grad_norm_(deep_Q_net_policy.parameters(), 5) # clip_grad_value_
-        torch.nn.utils.clip_grad_norm_(transformer_policy.parameters(), 5) # clip_grad_value_
+        torch.nn.utils.clip_grad_norm_(deep_Q_net_policy.parameters(), 5)  # clip_grad_value_
+        torch.nn.utils.clip_grad_norm_(transformer_policy.parameters(), 5)  # clip_grad_value_
         optimizer_deep_Q.step()
         # Optimize Transformer Net
         optimizer_transformer.step()
@@ -250,7 +255,7 @@ if TRAIN:
             # Optimize Policy Net MLP
             optimizer_mlp.zero_grad()
             loss_policy.backward()
-            torch.nn.utils.clip_grad_norm_(mlp_policy.parameters(), 5) # clip_grad_value_
+            torch.nn.utils.clip_grad_norm_(mlp_policy.parameters(), 5)  # clip_grad_value_
             optimizer_mlp.step()
 
             soft_update_target_networks()
@@ -280,6 +285,7 @@ if TRAIN:
                     1 - BETA)
         deep_Q_net_target.load_state_dict(target_net_state_dict)
 
+
     def get_set_up():
         global UAV_NUMBER
         UAV_NUMBER = random.randint(1, 3)
@@ -294,6 +300,7 @@ if TRAIN:
             "gu": starting_gu_number
         })
         return options
+
 
     def select_actions(state):
         global UAV_NUMBER
@@ -313,11 +320,12 @@ if TRAIN:
                 action.append(output)
         return action
 
+
     def add_padding(state, next_state, actions):
         padding = np.array([[0., 0.]])
         action_padding = [0., 0.]
         if UAV_NUMBER == 1:
-            for i in range(2,6):
+            for i in range(2, 6):
                 state = np.insert(state, i, padding, axis=0)
                 next_state = np.insert(next_state, i, padding, axis=0)
             actions.append(action_padding)
@@ -333,10 +341,34 @@ if TRAIN:
     def validate():
         global BEST_VALIDATION
         reward_sum = 0.0
-        options = None  # TODO
-        seeds = [42, 751, 853, 54321, 1181]
-        for i in seeds:
-            state, info = env.reset(seed=i, options=options)
+        options = ({
+                       "uav": 1,
+                       "gu": 20
+                   },
+                   {
+                       "uav": 1,
+                       "gu": 40
+                   },
+                   {
+                       "uav": 2,
+                       "gu": 60
+                   },
+                   {
+                       "uav": 2,
+                       "gu": 80
+                   },
+                   {
+                       "uav": 3,
+                       "gu": 100
+                   },
+                   {
+                       "uav": 3,
+                       "gu": 120
+                   }
+        )
+        seeds = [42, 751, 853, 54321, 1181, 3475]
+        for i, seed in enumerate(seeds):
+            state, info = env.reset(seed=seed, options=options[i])
             steps = 1
             while True:
                 actions = select_actions(state)
@@ -364,7 +396,7 @@ if TRAIN:
 
 
     if torch.cuda.is_available():
-        num_episodes = 5000
+        num_episodes = 4000
     else:
         num_episodes = 100
 

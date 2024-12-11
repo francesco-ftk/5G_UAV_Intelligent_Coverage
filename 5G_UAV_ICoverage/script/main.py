@@ -21,7 +21,7 @@ from gym_cruising.neural_network.deep_Q_net import DeepQNet, DoubleDeepQNet
 from gym_cruising.neural_network.transformer_encoder_decoder import TransformerEncoderDecoder
 from gym_cruising.enums.constraint import Constraint
 
-UAV_NUMBER = 2
+UAV_NUMBER = 0
 
 TRAIN = True
 BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
@@ -288,7 +288,10 @@ if TRAIN:
 
     def get_set_up():
         global UAV_NUMBER
-        UAV_NUMBER = random.randint(1, 3)
+        if UAV_NUMBER == 3:
+            UAV_NUMBER = 1
+        else:
+            UAV_NUMBER += 1
         if UAV_NUMBER == 1:
             starting_gu_number = random.randint(20, 40)
         elif UAV_NUMBER == 2:
@@ -302,16 +305,15 @@ if TRAIN:
         return options
 
 
-    def select_actions(state):
-        global UAV_NUMBER
-        uav_info, connected_gu_positions = np.split(state, [UAV_NUMBER * 2], axis=0)
-        uav_info = uav_info.reshape(UAV_NUMBER, 4)
+    def select_actions(state, uav_numebr):
+        uav_info, connected_gu_positions = np.split(state, [uav_numebr * 2], axis=0)
+        uav_info = uav_info.reshape(uav_numebr, 4)
         uav_info = torch.from_numpy(uav_info).float().to(device)
         connected_gu_positions = torch.from_numpy(connected_gu_positions).float().to(device)
         action = []
         with torch.no_grad():
             tokens = transformer_policy(connected_gu_positions.unsqueeze(0), uav_info.unsqueeze(0)).squeeze(0)
-        for i in range(UAV_NUMBER):
+        for i in range(uav_numebr):
             with torch.no_grad():
                 # return action according to MLP [vx, vy]
                 output = mlp_policy(tokens[i])
@@ -370,8 +372,9 @@ if TRAIN:
         for i, seed in enumerate(seeds):
             state, info = env.reset(seed=seed, options=options[i])
             steps = 1
+            uav_number = options[i]["uav"]
             while True:
-                actions = select_actions(state)
+                actions = select_actions(state, uav_number)
                 next_state, reward, terminated, truncated, _ = env.step(actions)
                 reward_sum += reward
 
@@ -396,7 +399,7 @@ if TRAIN:
 
 
     if torch.cuda.is_available():
-        num_episodes = 4000
+        num_episodes = 5000
     else:
         num_episodes = 100
 
@@ -416,8 +419,8 @@ if TRAIN:
             done = terminated or truncated
 
             # Store the transition in memory
-            state, next_state, actions = add_padding(state, next_state, actions)
-            replay_buffer.push(state, actions, next_state, reward, int(terminated))
+            state_padding, next_state_padding, actions_padding = add_padding(state, next_state, actions)
+            replay_buffer.push(state_padding, actions_padding, next_state_padding, reward, int(terminated))
             # Move to the next state
             state = next_state
             # Perform one step of the optimization

@@ -32,7 +32,7 @@ sigma_policy = 0.2  # Standard deviation of noise for policy actor actions on cu
 sigma = 0.2  # Standard deviation of noise for target policy actions on next states
 c = 0.5  # Clipping bound of noise
 policy_delay = 2  # delay for policy and target nets update
-start_steps = 15000
+start_steps = 20000
 
 MAX_SPEED_UAV = 55.6  # m/s - about 20 Km/h x 10 secondi
 

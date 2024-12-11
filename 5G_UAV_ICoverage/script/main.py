@@ -23,14 +23,14 @@ from gym_cruising.enums.constraint import Constraint
 
 UAV_NUMBER = 2
 
-TRAIN = False
+TRAIN = True
 BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
 LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
 BETA = 0.005  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
-sigma_policy = 0.4  # Standard deviation of noise for policy actor actions on current state
+sigma_policy = 0.2  # Standard deviation of noise for policy actor actions on current state
 sigma = 0.2  # Standard deviation of noise for target policy actions on next states
-c = 0.2  # Clipping bound of noise
+c = 0.5  # Clipping bound of noise
 policy_delay = 2  # delay for policy and target nets update
 start_steps = 15000
 
@@ -47,7 +47,7 @@ print("DEVICE:", device)
 
 if TRAIN:
 
-    wandb.init(project="5G_UAV_ICoverage_Curriculum_Learning_tdddpg_fix")
+    wandb.init(project="mix")
 
     env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=3)
     env.action_space.seed(42)
@@ -116,11 +116,12 @@ if TRAIN:
 
 
     def optimize_model():
-        global UAV_NUMBER
         global BATCH_SIZE
 
         if len(replay_buffer) < 5000:
             return
+
+        optimization_steps = 3
 
         transitions = replay_buffer.sample(BATCH_SIZE)
         # This converts batch-arrays of Transitions to Transition of batch-arrays.
@@ -137,13 +138,13 @@ if TRAIN:
         terminated_batch = torch.tensor(terminated_batch, dtype=torch.float32).unsqueeze(1).to(device)
 
         # prepare the batch of states
-        state_uav_info_batch = tuple(np.split(array, [UAV_NUMBER * 2], axis=0)[0] for array in states_batch)
-        state_uav_info_batch = tuple(array.reshape(UAV_NUMBER, 4) for array in state_uav_info_batch)
+        state_uav_info_batch = tuple(np.split(array, [optimization_steps * 2], axis=0)[0] for array in states_batch)
+        state_uav_info_batch = tuple(array.reshape(optimization_steps, 4) for array in state_uav_info_batch)
         state_uav_info_batch = tuple(torch.from_numpy(array).float().to(device) for array in state_uav_info_batch)
         state_uav_info_batch = torch.stack(state_uav_info_batch)
 
         state_connected_gu_positions_batch = tuple(
-            np.split(array, [UAV_NUMBER * 2], axis=0)[1] for array in states_batch)
+            np.split(array, [optimization_steps * 2], axis=0)[1] for array in states_batch)
         state_connected_gu_positions_batch = tuple(
             torch.from_numpy(array).float().to(device) for array in state_connected_gu_positions_batch)
         max_len = max(tensor.shape[0] for tensor in state_connected_gu_positions_batch)
@@ -156,14 +157,14 @@ if TRAIN:
 
         # prepare the batch of next states
         next_state_uav_info_batch = tuple(
-            np.split(array, [UAV_NUMBER * 2], axis=0)[0] for array in next_states_batch)
-        next_state_uav_info_batch = tuple(array.reshape(UAV_NUMBER, 4) for array in next_state_uav_info_batch)
+            np.split(array, [optimization_steps * 2], axis=0)[0] for array in next_states_batch)
+        next_state_uav_info_batch = tuple(array.reshape(optimization_steps, 4) for array in next_state_uav_info_batch)
         next_state_uav_info_batch = tuple(
             torch.from_numpy(array).float().to(device) for array in next_state_uav_info_batch)
         next_state_uav_info_batch = torch.stack(next_state_uav_info_batch)
 
         next_state_connected_gu_positions_batch = tuple(
-            np.split(array, [UAV_NUMBER * 2], axis=0)[1] for array in next_states_batch)
+            np.split(array, [optimization_steps * 2], axis=0)[1] for array in next_states_batch)
         next_state_connected_gu_positions_batch = tuple(
             torch.from_numpy(array).float().to(device) for array in next_state_connected_gu_positions_batch)
         max_len = max(tensor.shape[0] for tensor in next_state_connected_gu_positions_batch)
@@ -177,11 +178,11 @@ if TRAIN:
         # get tokens from batch of states and next states
         with torch.no_grad():
             tokens_batch_next_states_target = transformer_target(next_state_connected_gu_positions_batch,
-                                                                 next_state_uav_info_batch)  # [BATCH_SIZE, UAV_NUMBER, 16]
+                                                                 next_state_uav_info_batch)  # [BATCH_SIZE, optimization_steps, EMBEDDED_DIM]
             tokens_batch_states_target = transformer_target(state_connected_gu_positions_batch,
-                                                            state_uav_info_batch)  # [BATCH_SIZE, UAV_NUMBER, 16]
+                                                            state_uav_info_batch)  # [BATCH_SIZE, optimization_steps, EMBEDDED_DIM]
         tokens_batch_states = transformer_policy(state_connected_gu_positions_batch,
-                                                 state_uav_info_batch)  # [BATCH_SIZE, UAV_NUMBER, 16]
+                                                 state_uav_info_batch)  # [BATCH_SIZE, optimization_steps, EMBEDDED_DIM]
 
         loss_Q = 0.0
         loss_policy = 0.0
@@ -189,10 +190,10 @@ if TRAIN:
         Q1_batch_mean_first_uav = 0.0
         Q1_batch_mean_second_uav = 0.0
 
-        for i in range(UAV_NUMBER):
+        for i in range(optimization_steps):
             # UPDATE Q-FUNCTION
             with torch.no_grad():
-                # slice i-th UAV's tokens [BATCH_SIZE, 1, 16]
+                # slice i-th UAV's tokens [BATCH_SIZE, 1, EMBEDDED_DIM]
                 current_batch_tensor_tokens_next_states_target = tokens_batch_next_states_target[:, i:i + 1, :].squeeze(
                     1)
                 output_batch = mlp_target(current_batch_tensor_tokens_next_states_target)
@@ -204,7 +205,7 @@ if TRAIN:
                 output_batch = output_batch * MAX_SPEED_UAV  # actions batch for UAV i-th [BATCH_SIZE, 2]
                 Q1_values_batch, Q2_values_batch = deep_Q_net_target(current_batch_tensor_tokens_next_states_target, output_batch)
                 current_y_batch = rewards_batch + GAMMA * (1.0 - terminated_batch) * torch.min(Q1_values_batch, Q2_values_batch)
-            # slice i-th UAV's tokens [BATCH_SIZE, 1, 16]
+            # slice i-th UAV's tokens [BATCH_SIZE, 1, EMBEDDED_DIM]
             current_batch_tensor_tokens_states = tokens_batch_states[:, i:i + 1, :].squeeze(1)
             # Concatenate i-th UAV's actions along the batch size [BATCH_SIZE, 2]
             current_batch_actions = torch.cat(
@@ -224,7 +225,7 @@ if TRAIN:
 
             criterion = nn.MSELoss()
             # UPDATE POLICY
-            # slice i-th UAV's tokens [BATCH_SIZE, 1, 16]
+            # slice i-th UAV's tokens [BATCH_SIZE, 1, EMBEDDED_DIM]
             current_batch_tensor_tokens_states_target = tokens_batch_states_target[:, i:i + 1, :].squeeze(1)
             output_batch = mlp_policy(current_batch_tensor_tokens_states_target)
             output_batch = output_batch * MAX_SPEED_UAV  # actions batch for UAV i-th [BATCH_SIZE, 2]
@@ -284,7 +285,7 @@ if TRAIN:
         UAV_NUMBER = random.randint(1, 3)
         if UAV_NUMBER == 1:
             starting_gu_number = random.randint(20, 40)
-        if UAV_NUMBER == 2:
+        elif UAV_NUMBER == 2:
             starting_gu_number = random.randint(60, 80)
         else:
             starting_gu_number = random.randint(100, 120)
@@ -312,11 +313,27 @@ if TRAIN:
                 action.append(output)
         return action
 
+    def add_padding(state, next_state, actions):
+        padding = np.array([[0., 0.]])
+        action_padding = [0., 0.]
+        if UAV_NUMBER == 1:
+            for i in range(2,6):
+                state = np.insert(state, i, padding, axis=0)
+                next_state = np.insert(next_state, i, padding, axis=0)
+            actions.append(action_padding)
+            actions.append(action_padding)
+        if UAV_NUMBER == 2:
+            for i in range(4, 6):
+                state = np.insert(state, i, padding, axis=0)
+                next_state = np.insert(next_state, i, padding, axis=0)
+            actions.append(action_padding)
+        return state, next_state, actions
+
 
     def validate():
         global BEST_VALIDATION
         reward_sum = 0.0
-        options = None
+        options = None  # TODO
         seeds = [42, 751, 853, 54321, 1181]
         for i in seeds:
             state, info = env.reset(seed=i, options=options)
@@ -347,7 +364,7 @@ if TRAIN:
 
 
     if torch.cuda.is_available():
-        num_episodes = 4000
+        num_episodes = 5000
     else:
         num_episodes = 100
 
@@ -367,6 +384,7 @@ if TRAIN:
             done = terminated or truncated
 
             # Store the transition in memory
+            state, next_state, actions = add_padding(state, next_state, actions)
             replay_buffer.push(state, actions, next_state, reward, int(terminated))
             # Move to the next state
             state = next_state

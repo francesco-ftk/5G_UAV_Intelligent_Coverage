@@ -17,7 +17,7 @@ from gym_cruising.geometry.point import Point
 from gym_cruising.utils import channels_utils
 
 MAX_SPEED_UAV = 55.6  # m/s - about 20 Km/h x 10 secondi
-MAX_POSITION = 3000.0
+MAX_POSITION = 6000.0
 
 
 def normalizePositions(positions: np.ndarray) -> np.ndarray:  # Normalize in [-1,1]
@@ -89,8 +89,8 @@ class CruiseUAV(Cruise):
         self.uav = []
         self.gu = []
         # self.reward_window = []
-        self.UAV_NUMBER = options[0]["uav"]
-        self.STARTING_GU_NUMBER = options[0]["gu"]
+        self.UAV_NUMBER = options["uav"]
+        self.STARTING_GU_NUMBER = options["gu"]
         self.reset_observation_action_space()
         self.gu_number = self.STARTING_GU_NUMBER
         self.disappear_gu_prob = self.SPAWN_GU_PROB * 4 / self.gu_number

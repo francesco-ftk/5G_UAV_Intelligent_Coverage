@@ -28,7 +28,7 @@ BATCH_SIZE = 256  # is the number of transitions random sampled from the replay 
 LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
 BETA = 0.005  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
-sigma_policy = 0.2  # Standard deviation of noise for policy actor actions on current state
+sigma_policy = 0.4  # Standard deviation of noise for policy actor actions on current state
 sigma = 0.2  # Standard deviation of noise for target policy actions on next states
 c = 0.5  # Clipping bound of noise
 policy_delay = 2  # delay for policy and target nets update
@@ -399,7 +399,7 @@ if TRAIN:
 
 
     if torch.cuda.is_available():
-        num_episodes = 5000
+        num_episodes = 4000
     else:
         num_episodes = 100
 

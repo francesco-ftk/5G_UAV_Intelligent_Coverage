@@ -30,7 +30,7 @@ BETA = 0.005  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
 sigma_policy = 0.4  # Standard deviation of noise for policy actor actions on current state
 sigma = 0.2  # Standard deviation of noise for target policy actions on next states
-c = 0.5  # Clipping bound of noise
+c = 0.2  # Clipping bound of noise
 policy_delay = 2  # delay for policy and target nets update
 start_steps = 20000
 
@@ -49,7 +49,7 @@ if TRAIN:
 
     wandb.init(project="mix")
 
-    env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=1)
+    env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=2)
     env.action_space.seed(42)
 
     # ACTOR POLICY NET policy
@@ -293,11 +293,11 @@ if TRAIN:
         else:
             UAV_NUMBER += 1
         if UAV_NUMBER == 1:
-            starting_gu_number = random.randint(20, 40)
+            starting_gu_number = random.randint(50, 60)
         elif UAV_NUMBER == 2:
-            starting_gu_number = random.randint(60, 80)
+            starting_gu_number = random.randint(70, 80)
         else:
-            starting_gu_number = random.randint(100, 120)
+            starting_gu_number = random.randint(90, 100)
         options = ({
             "uav": UAV_NUMBER,
             "gu": starting_gu_number
@@ -345,15 +345,15 @@ if TRAIN:
         reward_sum = 0.0
         options = ({
                        "uav": 1,
-                       "gu": 20
+                       "gu": 50
                    },
                    {
                        "uav": 1,
-                       "gu": 40
+                       "gu": 60
                    },
                    {
                        "uav": 2,
-                       "gu": 60
+                       "gu": 70
                    },
                    {
                        "uav": 2,
@@ -361,11 +361,11 @@ if TRAIN:
                    },
                    {
                        "uav": 3,
-                       "gu": 100
+                       "gu": 90
                    },
                    {
                        "uav": 3,
-                       "gu": 120
+                       "gu": 100
                    }
         )
         seeds = [42, 751, 853, 54321, 1181, 3475]
@@ -393,13 +393,13 @@ if TRAIN:
         if reward_sum > BEST_VALIDATION:
             BEST_VALIDATION = reward_sum
             # save the best validation nets
-            torch.save(transformer_policy.state_dict(), '../neural_network/rewardTransformer.pth')
-            torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
-            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/rewardDeepQ.pth')
+            torch.save(transformer_policy.state_dict(), '../neural_network/reward1Transformer.pth')
+            torch.save(mlp_policy.state_dict(), '../neural_network/reward1MLP.pth')
+            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/reward1DeepQ.pth')
 
 
     if torch.cuda.is_available():
-        num_episodes = 4000
+        num_episodes = 5000
     else:
         num_episodes = 100
 
@@ -434,9 +434,9 @@ if TRAIN:
             validate()
 
     # save the nets
-    torch.save(transformer_policy.state_dict(), '../neural_network/lastTransformer.pth')
-    torch.save(mlp_policy.state_dict(), '../neural_network/lastMLP.pth')
-    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/lastDeepQ.pth')
+    torch.save(transformer_policy.state_dict(), '../neural_network/last1Transformer.pth')
+    torch.save(mlp_policy.state_dict(), '../neural_network/last1MLP.pth')
+    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/last1DeepQ.pth')
 
     wandb.finish()
     env.close()

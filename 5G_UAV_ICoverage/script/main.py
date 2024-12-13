@@ -21,7 +21,7 @@ from gym_cruising.neural_network.deep_Q_net import DeepQNet, DoubleDeepQNet
 from gym_cruising.neural_network.transformer_encoder_decoder import TransformerEncoderDecoder
 from gym_cruising.enums.constraint import Constraint
 
-UAV_NUMBER = 2
+UAV_NUMBER = 3
 
 TRAIN = True
 BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
@@ -32,7 +32,7 @@ sigma_policy = 0.4  # Standard deviation of noise for policy actor actions on cu
 sigma = 0.2  # Standard deviation of noise for target policy actions on next states
 c = 0.2  # Clipping bound of noise
 policy_delay = 2  # delay for policy and target nets update
-start_steps = 15000
+start_steps = 20000
 
 MAX_SPEED_UAV = 55.6  # m/s - about 20 Km/h x 10 secondi
 
@@ -49,7 +49,7 @@ if TRAIN:
 
     wandb.init(project="5G_UAV_ICoverage_Curriculum_Learning_tdddpg_fix")
 
-    env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=3)
+    env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=2)
     env.action_space.seed(42)
 
     # ACTOR POLICY NET policy
@@ -303,30 +303,9 @@ if TRAIN:
         global BEST_VALIDATION
         reward_sum = 0.0
         options = None
-        # seeds = [42, 751, 853, 54321, 1181]
-        seeds = [751, 54321]
+        seeds = [42, 751, 853, 54321, 1181]
         for i in seeds:
             state, info = env.reset(seed=i, options=options)
-            steps = 1
-            while True:
-                actions = select_actions(state)
-                next_state, reward, terminated, truncated, _ = env.step(actions)
-                reward_sum += reward
-
-                if steps == 300:
-                    truncated = True
-                done = terminated or truncated
-
-                state = next_state
-                steps += 1
-
-                if done:
-                    break
-
-        options = 1
-        seeds = [47, 513, 320]
-        for j in seeds:
-            state, info = env.reset(seed=j, options=options)
             steps = 1
             while True:
                 actions = select_actions(state)
@@ -354,7 +333,7 @@ if TRAIN:
 
 
     if torch.cuda.is_available():
-        num_episodes = 2000
+        num_episodes = 4000
     else:
         num_episodes = 100
 
@@ -362,10 +341,7 @@ if TRAIN:
 
     for i_episode in range(0, num_episodes, 1):
         print("Episode: ", i_episode)
-        if time_steps_done % policy_delay == 0:
-            options = None
-        else:
-            options = 1
+        options = None
         state, info = env.reset(seed=int(time.perf_counter()), options=options)
         steps = 1
         while True:
@@ -421,7 +397,7 @@ else:
 
 
     # For visible check
-    env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=3)
+    env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=2)
 
     env.action_space.seed(42)
 
@@ -434,7 +410,6 @@ else:
     # PATH_MLP_POLICY = './neural_network/rewardMLP.pth'
     # mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
 
-    # options = Constraint.CONSTRAINT60_2.value
     options = None
 
     time = int(time.perf_counter())
@@ -501,11 +476,3 @@ else:
     #     env.close()
     #
     # print("Mean reward: ", sum(rewards) / len(rewards))
-
-# BEST addestrato su 2_60_3000 su 10 test 751 2_60_3000 fa 70.17% in 15 minuti per test
-# BEST addestrato su 2_60_3000 su 10 test casuali 2_60_3000 fa 85.71% in 15 minuti per test
-# BEST addestrato su 2_60_3000 su 10 test constraint60_2 fa 98.43% in 15 minuti per test
-
-# BEST addestrato su 2_60_3000 su 10 test 751 3_80_4000 fa 61.12% in 15 minuti per test
-# BEST addestrato su 2_60_3000 su 10 test casuali 3_80_4000 fa 64.17% in 15 minuti per test
-# BEST addestrato su 2_60_3000 su 10 test constraint80_3 fa 62.83% in 15 minuti per test

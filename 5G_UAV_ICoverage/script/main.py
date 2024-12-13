@@ -21,7 +21,7 @@ from gym_cruising.neural_network.deep_Q_net import DeepQNet, DoubleDeepQNet
 from gym_cruising.neural_network.transformer_encoder_decoder import TransformerEncoderDecoder
 from gym_cruising.enums.constraint import Constraint
 
-UAV_NUMBER = 3
+UAV_NUMBER = 2
 
 TRAIN = True
 BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer

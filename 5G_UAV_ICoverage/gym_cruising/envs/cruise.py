@@ -28,7 +28,7 @@ class Cruise(Env):
     track: Track
     world: Tuple[Line, ...]
 
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 1}
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 8}
 
     def __init__(self, render_mode=None, track_id: int = 1) -> None:
         self.window_size = 1000  # The size of the PyGame window

@@ -23,7 +23,7 @@ from gym_cruising.enums.constraint import Constraint
 
 UAV_NUMBER = 0
 
-TRAIN = True
+TRAIN = False
 BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
 LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
 BETA = 0.005  # is the update rate of the target network
@@ -444,16 +444,15 @@ if TRAIN:
 
 else:
 
-    def select_actions(state):
-        global UAV_NUMBER
-        uav_info, connected_gu_positions = np.split(state, [UAV_NUMBER * 2], axis=0)
-        uav_info = uav_info.reshape(UAV_NUMBER, 4)
+    def select_actions(state, uav_numebr):
+        uav_info, connected_gu_positions = np.split(state, [uav_numebr * 2], axis=0)
+        uav_info = uav_info.reshape(uav_numebr, 4)
         uav_info = torch.from_numpy(uav_info).float().to(device)
         connected_gu_positions = torch.from_numpy(connected_gu_positions).float().to(device)
         action = []
         with torch.no_grad():
             tokens = transformer_policy(connected_gu_positions.unsqueeze(0), uav_info.unsqueeze(0)).squeeze(0)
-        for i in range(UAV_NUMBER):
+        for i in range(uav_numebr):
             with torch.no_grad():
                 # return action according to MLP [vx, vy]
                 output = mlp_policy(tokens[i])
@@ -462,9 +461,8 @@ else:
                 action.append(output)
         return action
 
-
     # For visible check
-    env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=3)
+    env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=2)
 
     env.action_space.seed(42)
 
@@ -472,21 +470,30 @@ else:
     transformer_policy = TransformerEncoderDecoder(embed_dim=EMBEDDED_DIM).to(device)
     mlp_policy = MLPPolicyNet(token_dim=EMBEDDED_DIM).to(device)
 
-    # PATH_TRANSFORMER = './neural_network/rewardTransformer.pth'
-    # transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    # PATH_MLP_POLICY = './neural_network/rewardMLP.pth'
-    # mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
+    PATH_TRANSFORMER = './neural_network/reward1Transformer.pth'
+    transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
+    PATH_MLP_POLICY = './neural_network/reward1MLP.pth'
+    mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
 
-    # options = Constraint.CONSTRAINT60_2.value
     options = None
+    options = ({
+        "uav": 2,
+        "gu": 75
+    })
+
+    # 4Kmx4Km last1 reward1
+    # 1369 per 1 25%, 32.47, 55GU
+    # 1551 per 2 57.96, xxx, 75GU
+    # 1692 per 3 72.67%, xxx, 95GU
 
     time = int(time.perf_counter())
     print("Time: ", time)
-    state, info = env.reset(seed=time, options=options)
+    state, info = env.reset(seed=1369, options=options)
     steps = 1
     rewards = []
+    uav_number = options["uav"]
     while True:
-        actions = select_actions(state)
+        actions = select_actions(state, uav_number)
         next_state, reward, terminated, truncated, _ = env.step(actions)
         rewards.append(reward)
 
@@ -544,11 +551,3 @@ else:
     #     env.close()
     #
     # print("Mean reward: ", sum(rewards) / len(rewards))
-
-# BEST addestrato su 2_60_3000 su 10 test 751 2_60_3000 fa 70.17% in 15 minuti per test
-# BEST addestrato su 2_60_3000 su 10 test casuali 2_60_3000 fa 85.71% in 15 minuti per test
-# BEST addestrato su 2_60_3000 su 10 test constraint60_2 fa 98.43% in 15 minuti per test
-
-# BEST addestrato su 2_60_3000 su 10 test 751 3_80_4000 fa 61.12% in 15 minuti per test
-# BEST addestrato su 2_60_3000 su 10 test casuali 3_80_4000 fa 64.17% in 15 minuti per test
-# BEST addestrato su 2_60_3000 su 10 test constraint80_3 fa 62.83% in 15 minuti per test

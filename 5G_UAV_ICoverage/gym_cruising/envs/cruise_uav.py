@@ -89,8 +89,8 @@ class CruiseUAV(Cruise):
         self.uav = []
         self.gu = []
         # self.reward_window = []
-        self.UAV_NUMBER = options["uav"]
-        self.STARTING_GU_NUMBER = options["gu"]
+        self.UAV_NUMBER = options[0]["uav"]
+        self.STARTING_GU_NUMBER = options[0]["gu"]
         self.reset_observation_action_space()
         self.gu_number = self.STARTING_GU_NUMBER
         self.disappear_gu_prob = self.SPAWN_GU_PROB * 4 / self.gu_number

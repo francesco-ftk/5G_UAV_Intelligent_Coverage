@@ -1,5 +1,6 @@
 import sys
 
+from numpy.f2py.f90mod_rules import options
 from sympy.stats.sampling.sample_numpy import numpy
 
 sys.path.append('/home/fantechi/tesi/5G_UAV_Intelligent_Coverage/5G_UAV_ICoverage')
@@ -470,28 +471,25 @@ else:
     transformer_policy = TransformerEncoderDecoder(embed_dim=EMBEDDED_DIM).to(device)
     mlp_policy = MLPPolicyNet(token_dim=EMBEDDED_DIM).to(device)
 
-    PATH_TRANSFORMER = './neural_network/reward1Transformer.pth'
+    PATH_TRANSFORMER = './neural_network/last1Transformer.pth'
     transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    PATH_MLP_POLICY = './neural_network/reward1MLP.pth'
+    PATH_MLP_POLICY = './neural_network/last1MLP.pth'
     mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
 
-    options = None
-    options = ({
-        "uav": 2,
-        "gu": 75
-    })
+    options = Constraint.CONSTRAINT60_2_new.value
+    # options = None
 
     # 4Kmx4Km last1 reward1
     # 1369 per 1 25%, 32.47, 55GU
-    # 1551 per 2 57.96, xxx, 75GU
-    # 1692 per 3 72.67%, xxx, 95GU
+    # 1551 per 2 57.96, 66.05, 75GU
+    # 1692 per 3 72.67%, 70.75, 95GU
 
     time = int(time.perf_counter())
     print("Time: ", time)
-    state, info = env.reset(seed=1369, options=options)
+    state, info = env.reset(seed=1692, options=options)
     steps = 1
     rewards = []
-    uav_number = options["uav"]
+    uav_number = options[0]["uav"]
     while True:
         actions = select_actions(state, uav_number)
         next_state, reward, terminated, truncated, _ = env.step(actions)

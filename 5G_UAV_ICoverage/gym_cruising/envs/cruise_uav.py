@@ -17,7 +17,7 @@ from gym_cruising.geometry.point import Point
 from gym_cruising.utils import channels_utils
 
 MAX_SPEED_UAV = 55.6  # m/s - about 20 Km/h x 10 secondi
-MAX_POSITION = 4000.0
+MAX_POSITION = 6000.0
 
 
 def normalizePositions(positions: np.ndarray) -> np.ndarray:  # Normalize in [-1,1]

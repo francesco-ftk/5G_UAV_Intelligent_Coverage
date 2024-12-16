@@ -20,7 +20,7 @@ class Cruise(Env):
     can inherit from one another and only redefine certain methods.
     """
 
-    RESOLUTION = 0.25  # 1.0 metro => 0.1667 pixels for track 1, 0.25 pixels for track 2, 0.3333 pixels for track 3, 0.5 pixels for track 4
+    RESOLUTION = 0.1667  # 1.0 metro => 0.1667 pixels for track 1, 0.25 pixels for track 2, 0.3333 pixels for track 3, 0.5 pixels for track 4
     WIDTH = 3
     Y_OFFSET = 0
     X_OFFSET = 0

@@ -30,7 +30,7 @@ BETA = 0.005  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
 sigma_policy = 0.4  # Standard deviation of noise for policy actor actions on current state
 sigma = 0.2  # Standard deviation of noise for target policy actions on next states
-c = 0.2  # Clipping bound of noise
+c = 0.5  # Clipping bound of noise
 policy_delay = 2  # delay for policy and target nets update
 start_steps = 20000
 
@@ -49,7 +49,7 @@ if TRAIN:
 
     wandb.init(project="5G_UAV_ICoverage_Curriculum_Learning_tdddpg_cluster")
 
-    env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=2)
+    env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=1)
     env.action_space.seed(42)
 
     # ACTOR POLICY NET policy
@@ -397,7 +397,7 @@ else:
 
 
     # For visible check
-    env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=2)
+    env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=1)
 
     env.action_space.seed(42)
 

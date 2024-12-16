@@ -47,7 +47,7 @@ print("DEVICE:", device)
 
 if TRAIN:
 
-    wandb.init(project="5G_UAV_ICoverage_Curriculum_Learning_tdddpg_fix")
+    wandb.init(project="5G_UAV_ICoverage_Curriculum_Learning_tdddpg_cluster")
 
     env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=2)
     env.action_space.seed(42)

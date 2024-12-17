@@ -24,7 +24,7 @@ from gym_cruising.enums.constraint import Constraint
 
 UAV_NUMBER = 0
 
-TRAIN = True
+TRAIN = False
 BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
 LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
 BETA = 0.005  # is the update rate of the target network
@@ -486,7 +486,7 @@ else:
 
     time = int(time.perf_counter())
     print("Time: ", time)
-    state, info = env.reset(seed=1692, options=options)
+    state, info = env.reset(seed=time, options=options)
     steps = 1
     rewards = []
     uav_number = options[0]["uav"]

@@ -394,9 +394,9 @@ if TRAIN:
         if reward_sum > BEST_VALIDATION:
             BEST_VALIDATION = reward_sum
             # save the best validation nets
-            torch.save(transformer_policy.state_dict(), '../neural_network/reward1Transformer.pth')
-            torch.save(mlp_policy.state_dict(), '../neural_network/reward1MLP.pth')
-            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/reward1DeepQ.pth')
+            torch.save(transformer_policy.state_dict(), '../neural_network/rewardTransformer.pth')
+            torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
+            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/rewardDeepQ.pth')
 
 
     if torch.cuda.is_available():
@@ -435,9 +435,9 @@ if TRAIN:
             validate()
 
     # save the nets
-    torch.save(transformer_policy.state_dict(), '../neural_network/last1Transformer.pth')
-    torch.save(mlp_policy.state_dict(), '../neural_network/last1MLP.pth')
-    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/last1DeepQ.pth')
+    torch.save(transformer_policy.state_dict(), '../neural_network/lastTransformer.pth')
+    torch.save(mlp_policy.state_dict(), '../neural_network/lastMLP.pth')
+    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/lastDeepQ.pth')
 
     wandb.finish()
     env.close()
@@ -476,8 +476,10 @@ else:
     PATH_MLP_POLICY = './neural_network/last1MLP.pth'
     mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
 
-    options = Constraint.CONSTRAINT60_2_new.value
-    # options = None
+    options = ({
+        "uav": 2,
+        "gu": 75
+    })
 
     # 4Kmx4Km last1 reward1
     # 1369 per 1 25%, 32.47, 55GU
@@ -486,10 +488,10 @@ else:
 
     time = int(time.perf_counter())
     print("Time: ", time)
-    state, info = env.reset(seed=1692, options=options)
+    state, info = env.reset(seed=time, options=options)
     steps = 1
     rewards = []
-    uav_number = options[0]["uav"]
+    uav_number = options["uav"]
     while True:
         actions = select_actions(state, uav_number)
         next_state, reward, terminated, truncated, _ = env.step(actions)

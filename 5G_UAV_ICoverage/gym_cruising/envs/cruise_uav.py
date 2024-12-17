@@ -89,8 +89,8 @@ class CruiseUAV(Cruise):
         self.uav = []
         self.gu = []
         # self.reward_window = []
-        self.UAV_NUMBER = options[0]["uav"]
-        self.STARTING_GU_NUMBER = options[0]["gu"]
+        self.UAV_NUMBER = options["uav"]
+        self.STARTING_GU_NUMBER = options["gu"]
         self.reset_observation_action_space()
         self.gu_number = self.STARTING_GU_NUMBER
         self.disappear_gu_prob = self.SPAWN_GU_PROB * 4 / self.gu_number
@@ -303,12 +303,12 @@ class CruiseUAV(Cruise):
     #     return (self.alpha * current_RCR + self.beta * delta_RCR) * 10.0
 
     def init_environment(self, options: Optional[dict] = None) -> None:
-        if options is None:
-            self.init_uav()
-            self.init_gu()
-        else:
-            self.init_uav_constrained(options[1])
-            self.init_gu_contstrained(options[2])
+        # if options is None:
+        self.init_uav()
+        self.init_gu()
+        # else:
+        #     self.init_uav_constrained(options[1])
+        #     self.init_gu_contstrained(options[2])
         self.calculate_PathLoss_with_Markov_Chain()
         self.calculate_SINR()
         self.check_connection_and_coverage_UAV_GU()
@@ -345,15 +345,15 @@ class CruiseUAV(Cruise):
             self.initialize_channel(gu)
             self.gu.append(gu)
 
-    def init_uav_constrained(self, options):
-        for i in range(0, self.UAV_NUMBER):
-            self.uav.append(UAV(Point(options[str(i)][0], options[str(i)][1])))
-
-    def init_gu_contstrained(self, options):
-        for i in range(0, self.gu_number):
-            gu = GU(Point(options[str(i)][0], options[str(i)][1]))
-            self.initialize_channel(gu)
-            self.gu.append(gu)
+    # def init_uav_constrained(self, options):
+    #     for i in range(0, self.UAV_NUMBER):
+    #         self.uav.append(UAV(Point(options[str(i)][0], options[str(i)][1])))
+    #
+    # def init_gu_contstrained(self, options):
+    #     for i in range(0, self.gu_number):
+    #         gu = GU(Point(options[str(i)][0], options[str(i)][1]))
+    #         self.initialize_channel(gu)
+    #         self.gu.append(gu)
 
     def initialize_channel(self, gu):
         for uav in self.uav:

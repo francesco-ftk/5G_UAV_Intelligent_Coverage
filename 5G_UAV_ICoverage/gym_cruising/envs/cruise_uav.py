@@ -303,12 +303,11 @@ class CruiseUAV(Cruise):
     #     return (self.alpha * current_RCR + self.beta * delta_RCR) * 10.0
 
     def init_environment(self, options: Optional[dict] = None) -> None:
-        # if options is None:
         self.init_uav()
-        self.init_gu()
-        # else:
-        #     self.init_uav_constrained(options[1])
-        #     self.init_gu_contstrained(options[2])
+        if options['clustered'] is 0:
+            self.init_gu()
+        else:
+            self.init_gu_clustered(options)
         self.calculate_PathLoss_with_Markov_Chain()
         self.calculate_SINR()
         self.check_connection_and_coverage_UAV_GU()
@@ -345,15 +344,26 @@ class CruiseUAV(Cruise):
             self.initialize_channel(gu)
             self.gu.append(gu)
 
-    # def init_uav_constrained(self, options):
-    #     for i in range(0, self.UAV_NUMBER):
-    #         self.uav.append(UAV(Point(options[str(i)][0], options[str(i)][1])))
-    #
-    # def init_gu_contstrained(self, options):
-    #     for i in range(0, self.gu_number):
-    #         gu = GU(Point(options[str(i)][0], options[str(i)][1]))
-    #         self.initialize_channel(gu)
-    #         self.gu.append(gu)
+    def init_gu_clustered(self, options: Optional[dict] = None) -> None:
+        area = self.np_random.choice(self.track.spawn_area)
+        std_dev = np.sqrt(options['variance'])
+        number_of_clusters = options['clusters_number']
+        gu_for_cluster = int(self.STARTING_GU_NUMBER / number_of_clusters)
+        for i in range(number_of_clusters):
+            mean_x = self.np_random.uniform(area[0][0] + 250, area[0][1] - 250)
+            mean_y = self.np_random.uniform(area[0][0] + 250, area[0][1] - 250)
+            for j in range(gu_for_cluster):
+                repeat = True
+                while repeat:
+                    # Generazione del numero casuale
+                    x_coordinate = np.random.normal(mean_x, std_dev)
+                    y_coordinate = np.random.normal(mean_y, std_dev)
+                    position = Point(x_coordinate, y_coordinate)
+                    if position.is_in_area(area):
+                        repeat = False
+                gu = GU(position)
+                self.initialize_channel(gu)
+                self.gu.append(gu)
 
     def initialize_channel(self, gu):
         for uav in self.uav:

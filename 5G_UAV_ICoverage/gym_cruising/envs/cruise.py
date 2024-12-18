@@ -85,7 +85,7 @@ class Cruise(Env):
         super().reset(seed=seed)
         self.world = deepcopy(self.track.walls)
 
-        self.init_environment(None)  # TODO options
+        self.init_environment(options)
 
         observation = self.get_observation()
         info = self.create_info()

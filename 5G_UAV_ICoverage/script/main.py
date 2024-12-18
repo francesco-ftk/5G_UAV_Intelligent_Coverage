@@ -1,4 +1,5 @@
 import sys
+from statistics import variance
 
 from numpy.f2py.f90mod_rules import options
 from sympy.stats.sampling.sample_numpy import numpy
@@ -34,6 +35,7 @@ sigma = 0.2  # Standard deviation of noise for target policy actions on next sta
 c = 0.2  # Clipping bound of noise
 policy_delay = 2  # delay for policy and target nets update
 start_steps = 20000
+p = 0.2  # control environment setup switch
 
 MAX_SPEED_UAV = 55.6  # m/s - about 20 Km/h x 10 secondi
 
@@ -48,7 +50,7 @@ print("DEVICE:", device)
 
 if TRAIN:
 
-    wandb.init(project="mix")
+    wandb.init(project="mixed")
 
     env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=2)
     env.action_space.seed(42)
@@ -87,18 +89,17 @@ if TRAIN:
     replay_buffer = ReplayMemory(100000)
 
 
-    def select_actions_epsilon(state):
+    def select_actions_epsilon(state, uav_number):
         global time_steps_done
-        global UAV_NUMBER
-        uav_info, connected_gu_positions = np.split(state, [UAV_NUMBER * 2], axis=0)
-        uav_info = uav_info.reshape(UAV_NUMBER, 4)
+        uav_info, connected_gu_positions = np.split(state, [uav_number * 2], axis=0)
+        uav_info = uav_info.reshape(uav_number, 4)
         uav_info = torch.from_numpy(uav_info).float().to(device)
         connected_gu_positions = torch.from_numpy(connected_gu_positions).float().to(device)
         action = []
         with torch.no_grad():
             tokens = transformer_policy(connected_gu_positions.unsqueeze(0), uav_info.unsqueeze(0)).squeeze(0)
         time_steps_done += 1
-        for i in range(UAV_NUMBER):
+        for i in range(uav_number):
             if time_steps_done < start_steps:
                 output = np.random.uniform(low=-1.0, high=1.0, size=2)
                 output = output * MAX_SPEED_UAV
@@ -287,22 +288,65 @@ if TRAIN:
         deep_Q_net_target.load_state_dict(target_net_state_dict)
 
 
+    def get_uniform_options():
+        global UAV_NUMBER
+
+        starting_gu_number = random.randint(20, 120)
+        if UAV_NUMBER == 1:
+            uav_number = 1
+        elif UAV_NUMBER == 2:
+            uav_number = 2
+        else:
+            uav_number = 3
+
+        return ({
+            "uav": uav_number,
+            "gu": starting_gu_number,
+            "clustered": 0,
+            "clusters_number": 0,
+            "variance": 0
+        })
+
+
+    def get_clustered_options():
+        global UAV_NUMBER
+
+        clusters_number = random.randint(1, 6)
+        variance = random.randint(40000, 50000)
+
+        if UAV_NUMBER == 1:
+            starting_gu_number = 20 * clusters_number
+            uav_number = 1
+        elif UAV_NUMBER == 2:
+            starting_gu_number = 20 * clusters_number
+            uav_number = 2
+        else:
+            starting_gu_number = 20 * clusters_number
+            uav_number = 3
+
+        return ({
+            "uav": uav_number,
+            "gu": starting_gu_number,
+            "clustered": 1,
+            "clusters_number": clusters_number,
+            "variance": variance
+        })
+
+
     def get_set_up():
         global UAV_NUMBER
+
+        sample = random.random()
+        if sample > p:
+            options = get_clustered_options()
+        else:
+            options = get_uniform_options()
+
         if UAV_NUMBER == 3:
             UAV_NUMBER = 1
         else:
             UAV_NUMBER += 1
-        if UAV_NUMBER == 1:
-            starting_gu_number = random.randint(50, 60)
-        elif UAV_NUMBER == 2:
-            starting_gu_number = random.randint(70, 80)
-        else:
-            starting_gu_number = random.randint(90, 100)
-        options = ({
-            "uav": UAV_NUMBER,
-            "gu": starting_gu_number
-        })
+
         return options
 
 
@@ -324,16 +368,16 @@ if TRAIN:
         return action
 
 
-    def add_padding(state, next_state, actions):
+    def add_padding(state, next_state, actions, uav_number):
         padding = np.array([[0., 0.]])
         action_padding = [0., 0.]
-        if UAV_NUMBER == 1:
+        if uav_number == 1:
             for i in range(2, 6):
                 state = np.insert(state, i, padding, axis=0)
                 next_state = np.insert(next_state, i, padding, axis=0)
             actions.append(action_padding)
             actions.append(action_padding)
-        if UAV_NUMBER == 2:
+        if uav_number == 2:
             for i in range(4, 6):
                 state = np.insert(state, i, padding, axis=0)
                 next_state = np.insert(next_state, i, padding, axis=0)
@@ -343,33 +387,32 @@ if TRAIN:
 
     def validate():
         global BEST_VALIDATION
-        reward_sum = 0.0
+        reward_sum_uniform = 0.0
+        reward_sum_clustered = 0.0
         options = ({
                        "uav": 1,
-                       "gu": 50
-                   },
-                   {
-                       "uav": 1,
-                       "gu": 60
-                   },
-                   {
-                       "uav": 2,
-                       "gu": 70
+                       "gu": 40,
+                       "clustered": 1,
+                       "clusters_number": 2,
+                       "variance": variance
                    },
                    {
                        "uav": 2,
-                       "gu": 80
+                       "gu": 80,
+                       "clustered": 1,
+                       "clusters_number": 4,
+                       "variance": variance
                    },
                    {
                        "uav": 3,
-                       "gu": 90
-                   },
-                   {
-                       "uav": 3,
-                       "gu": 100
+                       "gu": 120,
+                       "clustered": 1,
+                       "clusters_number": 6,
+                       "variance": variance
                    }
         )
-        seeds = [42, 751, 853, 54321, 1181, 3475]
+
+        seeds = [42, 751, 853]
         for i, seed in enumerate(seeds):
             state, info = env.reset(seed=seed, options=options[i])
             steps = 1
@@ -377,7 +420,7 @@ if TRAIN:
             while True:
                 actions = select_actions(state, uav_number)
                 next_state, reward, terminated, truncated, _ = env.step(actions)
-                reward_sum += reward
+                reward_sum_clustered += reward
 
                 if steps == 300:
                     truncated = True
@@ -389,10 +432,56 @@ if TRAIN:
                 if done:
                     break
 
-        wandb.log({"reward": reward_sum})
+        wandb.log({"reward_clustered": reward_sum_clustered})
 
-        if reward_sum > BEST_VALIDATION:
-            BEST_VALIDATION = reward_sum
+        options = ({
+                       "uav": 1,
+                       "gu": 40,
+                       "clustered": 0,
+                       "clusters_number": 0,
+                       "variance": 0
+                   },
+                   {
+                       "uav": 2,
+                       "gu": 80,
+                       "clustered": 0,
+                       "clusters_number": 0,
+                       "variance": 0
+                   },
+                   {
+                       "uav": 3,
+                       "gu": 120,
+                       "clustered": 0,
+                       "clusters_number": 0,
+                       "variance": 0
+                   })
+
+        seeds = [54321, 1181, 3475]
+        for i, seed in enumerate(seeds):
+            state, info = env.reset(seed=seed, options=options[i])
+            steps = 1
+            uav_number = options[i]["uav"]
+            while True:
+                actions = select_actions(state, uav_number)
+                next_state, reward, terminated, truncated, _ = env.step(actions)
+                reward_sum_uniform += reward
+
+                if steps == 300:
+                    truncated = True
+                done = terminated or truncated
+
+                state = next_state
+                steps += 1
+
+                if done:
+                    break
+
+        wandb.log({"reward_uniform": reward_sum_uniform})
+
+        total_reward = reward_sum_clustered + reward_sum_uniform
+
+        if total_reward > BEST_VALIDATION:
+            BEST_VALIDATION = total_reward
             # save the best validation nets
             torch.save(transformer_policy.state_dict(), '../neural_network/rewardTransformer.pth')
             torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
@@ -400,7 +489,7 @@ if TRAIN:
 
 
     if torch.cuda.is_available():
-        num_episodes = 5000
+        num_episodes = 6000
     else:
         num_episodes = 100
 
@@ -412,7 +501,7 @@ if TRAIN:
         state, info = env.reset(seed=int(time.perf_counter()), options=options)
         steps = 1
         while True:
-            actions = select_actions_epsilon(state)
+            actions = select_actions_epsilon(state, options['uav'])
             next_state, reward, terminated, truncated, _ = env.step(actions)
 
             if steps == 300:
@@ -420,7 +509,8 @@ if TRAIN:
             done = terminated or truncated
 
             # Store the transition in memory
-            state_padding, next_state_padding, actions_padding = add_padding(state, next_state, actions)
+            state_padding, next_state_padding, actions_padding = add_padding(state, next_state, actions,
+                                                                             options['uav'])
             replay_buffer.push(state_padding, actions_padding, next_state_padding, reward, int(terminated))
             # Move to the next state
             state = next_state
@@ -462,6 +552,7 @@ else:
                 action.append(output)
         return action
 
+
     # For visible check
     env = gym.make('gym_cruising:Cruising-v0', render_mode='human', track_id=2)
 
@@ -471,20 +562,18 @@ else:
     transformer_policy = TransformerEncoderDecoder(embed_dim=EMBEDDED_DIM).to(device)
     mlp_policy = MLPPolicyNet(token_dim=EMBEDDED_DIM).to(device)
 
-    PATH_TRANSFORMER = './neural_network/last1Transformer.pth'
-    transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    PATH_MLP_POLICY = './neural_network/last1MLP.pth'
-    mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
+    # PATH_TRANSFORMER = './neural_network/last1Transformer.pth'
+    # transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
+    # PATH_MLP_POLICY = './neural_network/last1MLP.pth'
+    # mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
 
     options = ({
-        "uav": 2,
-        "gu": 75
+        "uav": 3,
+        "gu": 120,
+        "clustered": 1,
+        "clusters_number": 6,
+        "variance": 50000
     })
-
-    # 4Kmx4Km last1 reward1
-    # 1369 per 1 25%, 32.47, 55GU
-    # 1551 per 2 57.96, 66.05, 75GU
-    # 1692 per 3 72.67%, 70.75, 95GU
 
     time = int(time.perf_counter())
     print("Time: ", time)

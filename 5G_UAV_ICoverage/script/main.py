@@ -343,7 +343,7 @@ if TRAIN:
             options = get_uniform_options()
 
         if UAV_NUMBER == 3:
-            UAV_NUMBER = 1
+            UAV_NUMBER = 0
         else:
             UAV_NUMBER += 1
 

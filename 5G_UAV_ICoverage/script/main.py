@@ -394,21 +394,21 @@ if TRAIN:
                        "gu": 40,
                        "clustered": 1,
                        "clusters_number": 2,
-                       "variance": variance
+                       "variance": 45000
                    },
                    {
                        "uav": 2,
                        "gu": 80,
                        "clustered": 1,
                        "clusters_number": 4,
-                       "variance": variance
+                       "variance": 45000
                    },
                    {
                        "uav": 3,
                        "gu": 120,
                        "clustered": 1,
                        "clusters_number": 6,
-                       "variance": variance
+                       "variance": 45000
                    }
         )
 

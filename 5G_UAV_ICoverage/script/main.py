@@ -25,7 +25,7 @@ from gym_cruising.enums.constraint import Constraint
 
 UAV_NUMBER = 0
 
-TRAIN = True
+TRAIN = False
 BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
 LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
 BETA = 0.005  # is the update rate of the target network
@@ -562,22 +562,22 @@ else:
     transformer_policy = TransformerEncoderDecoder(embed_dim=EMBEDDED_DIM).to(device)
     mlp_policy = MLPPolicyNet(token_dim=EMBEDDED_DIM).to(device)
 
-    # PATH_TRANSFORMER = './neural_network/last1Transformer.pth'
-    # transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    # PATH_MLP_POLICY = './neural_network/last1MLP.pth'
-    # mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
+    PATH_TRANSFORMER = './neural_network/rewardTransformer.pth'
+    transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
+    PATH_MLP_POLICY = './neural_network/rewardMLP.pth'
+    mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
 
     options = ({
         "uav": 3,
         "gu": 120,
         "clustered": 1,
-        "clusters_number": 6,
+        "clusters_number": 3,
         "variance": 50000
     })
 
     time = int(time.perf_counter())
     print("Time: ", time)
-    state, info = env.reset(seed=time, options=options)
+    state, info = env.reset(seed=347, options=options)
     steps = 1
     rewards = []
     uav_number = options["uav"]

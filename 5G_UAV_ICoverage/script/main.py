@@ -34,7 +34,7 @@ sigma_policy = 0.4  # Standard deviation of noise for policy actor actions on cu
 sigma = 0.2  # Standard deviation of noise for target policy actions on next states
 c = 0.2  # Clipping bound of noise
 policy_delay = 2  # delay for policy and target nets update
-start_steps = 40000
+start_steps = 30000
 p = 0.2  # control environment setup switch
 
 MAX_SPEED_UAV = 55.6  # m/s - about 20 Km/h x 10 secondi
@@ -292,7 +292,7 @@ if TRAIN:
     def get_uniform_options():
         global UAV_NUMBER
 
-        starting_gu_number = random.randint(20, 120)
+        starting_gu_number = random.randint(40, 120)
         if UAV_NUMBER == 1:
             uav_number = 1
         elif UAV_NUMBER == 2:
@@ -312,7 +312,7 @@ if TRAIN:
     def get_clustered_options():
         global UAV_NUMBER
 
-        clusters_number = random.randint(1, 6)
+        clusters_number = random.randint(2, 6)
         variance = random.randint(40000, 50000)
 
         if UAV_NUMBER == 1:

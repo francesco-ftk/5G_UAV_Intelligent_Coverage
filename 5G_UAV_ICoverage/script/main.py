@@ -497,9 +497,9 @@ if TRAIN:
         if total_reward > BEST_VALIDATION:
             BEST_VALIDATION = total_reward
             # save the best validation nets
-            torch.save(transformer_policy.state_dict(), '../neural_network/rewardTransformer.pth')
-            torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
-            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/rewardDeepQ.pth')
+            torch.save(transformer_policy.state_dict(), '../neural_network/reward1Transformer.pth')
+            torch.save(mlp_policy.state_dict(), '../neural_network/reward1MLP.pth')
+            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/reward1DeepQ.pth')
 
         if max_rcr > MAX_RCR:
             MAX_RCR = max_rcr
@@ -546,9 +546,9 @@ if TRAIN:
             validate()
 
     # save the nets
-    torch.save(transformer_policy.state_dict(), '../neural_network/lastTransformer.pth')
-    torch.save(mlp_policy.state_dict(), '../neural_network/lastMLP.pth')
-    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/lastDeepQ.pth')
+    torch.save(transformer_policy.state_dict(), '../neural_network/last1Transformer.pth')
+    torch.save(mlp_policy.state_dict(), '../neural_network/last1MLP.pth')
+    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/last1DeepQ.pth')
 
     wandb.finish()
     env.close()

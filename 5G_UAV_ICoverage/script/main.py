@@ -25,7 +25,7 @@ from gym_cruising.enums.constraint import Constraint
 
 UAV_NUMBER = 0
 
-TRAIN = False
+TRAIN = True
 BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
 LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
 BETA = 0.005  # is the update rate of the target network
@@ -34,7 +34,7 @@ sigma_policy = 0.4  # Standard deviation of noise for policy actor actions on cu
 sigma = 0.2  # Standard deviation of noise for target policy actions on next states
 c = 0.2  # Clipping bound of noise
 policy_delay = 2  # delay for policy and target nets update
-start_steps = 20000
+start_steps = 40000
 p = 0.2  # control environment setup switch
 
 MAX_SPEED_UAV = 55.6  # m/s - about 20 Km/h x 10 secondi
@@ -42,7 +42,8 @@ MAX_SPEED_UAV = 55.6  # m/s - about 20 Km/h x 10 secondi
 time_steps_done = -1
 
 BEST_VALIDATION = 0.0
-EMBEDDED_DIM = 32
+MAX_RCR = 0.0
+EMBEDDED_DIM = 64
 
 # if gpu is to be used
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -387,33 +388,36 @@ if TRAIN:
 
     def validate():
         global BEST_VALIDATION
+        global MAX_RCR
         reward_sum_uniform = 0.0
         reward_sum_clustered = 0.0
+        max_rcr = 0.0
         options = ({
                        "uav": 1,
                        "gu": 40,
                        "clustered": 1,
-                       "clusters_number": 2,
-                       "variance": 45000
+                       "clusters_number": 1,
+                       "variance": 50000
                    },
                    {
                        "uav": 2,
                        "gu": 80,
                        "clustered": 1,
-                       "clusters_number": 4,
-                       "variance": 45000
+                       "clusters_number": 2,
+                       "variance": 50000
                    },
                    {
                        "uav": 3,
                        "gu": 120,
                        "clustered": 1,
-                       "clusters_number": 6,
-                       "variance": 45000
+                       "clusters_number": 3,
+                       "variance": 50000
                    }
         )
 
         seeds = [42, 751, 853]
         for i, seed in enumerate(seeds):
+            current_max_rcr = 0.0
             state, info = env.reset(seed=seed, options=options[i])
             steps = 1
             uav_number = options[i]["uav"]
@@ -421,6 +425,9 @@ if TRAIN:
                 actions = select_actions(state, uav_number)
                 next_state, reward, terminated, truncated, _ = env.step(actions)
                 reward_sum_clustered += reward
+
+                if reward > current_max_rcr:
+                    current_max_rcr = reward
 
                 if steps == 300:
                     truncated = True
@@ -430,6 +437,7 @@ if TRAIN:
                 steps += 1
 
                 if done:
+                    max_rcr += current_max_rcr
                     break
 
         wandb.log({"reward_clustered": reward_sum_clustered})
@@ -458,6 +466,7 @@ if TRAIN:
 
         seeds = [54321, 1181, 3475]
         for i, seed in enumerate(seeds):
+            current_max_rcr = 0.0
             state, info = env.reset(seed=seed, options=options[i])
             steps = 1
             uav_number = options[i]["uav"]
@@ -465,6 +474,9 @@ if TRAIN:
                 actions = select_actions(state, uav_number)
                 next_state, reward, terminated, truncated, _ = env.step(actions)
                 reward_sum_uniform += reward
+
+                if reward > current_max_rcr:
+                    current_max_rcr = reward
 
                 if steps == 300:
                     truncated = True
@@ -474,9 +486,11 @@ if TRAIN:
                 steps += 1
 
                 if done:
+                    max_rcr += current_max_rcr
                     break
 
         wandb.log({"reward_uniform": reward_sum_uniform})
+        wandb.log({"max_rcr": max_rcr})
 
         total_reward = reward_sum_clustered + reward_sum_uniform
 
@@ -486,6 +500,13 @@ if TRAIN:
             torch.save(transformer_policy.state_dict(), '../neural_network/rewardTransformer.pth')
             torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
             torch.save(deep_Q_net_policy.state_dict(), '../neural_network/rewardDeepQ.pth')
+
+        if max_rcr > MAX_RCR:
+            MAX_RCR = max_rcr
+            # save the best validation nets
+            torch.save(transformer_policy.state_dict(), '../neural_network/maxTransformer.pth')
+            torch.save(mlp_policy.state_dict(), '../neural_network/maxMLP.pth')
+            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/maxDeepQ.pth')
 
 
     if torch.cuda.is_available():
@@ -571,13 +592,15 @@ else:
         "uav": 3,
         "gu": 120,
         "clustered": 1,
-        "clusters_number": 3,
+        "clusters_number": 6,
         "variance": 50000
     })
 
+    # 1149
+
     time = int(time.perf_counter())
     print("Time: ", time)
-    state, info = env.reset(seed=347, options=options)
+    state, info = env.reset(seed=time, options=options)
     steps = 1
     rewards = []
     uav_number = options["uav"]
@@ -586,7 +609,7 @@ else:
         next_state, reward, terminated, truncated, _ = env.step(actions)
         rewards.append(reward)
 
-        if steps == 900:
+        if steps == 300:
             truncated = True
         done = terminated or truncated
 

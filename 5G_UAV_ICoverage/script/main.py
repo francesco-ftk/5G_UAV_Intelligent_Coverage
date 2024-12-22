@@ -197,31 +197,39 @@ if TRAIN:
         Q1_batch_mean_second_uav = 0.0
 
         for i in range(optimization_steps):
+            # index mask for not padded current uav in batch
+            index_mask = [
+                k for k, lista in enumerate(actions_batch)
+                if not torch.equal(lista[i], torch.tensor([0., 0.]))
+            ]
+
+            masked_batch_size = len(index_mask)
+
             # UPDATE Q-FUNCTION
             with torch.no_grad():
-                # slice i-th UAV's tokens [BATCH_SIZE, 1, EMBEDDED_DIM]
-                current_batch_tensor_tokens_next_states_target = tokens_batch_next_states_target[:, i:i + 1, :].squeeze(
+                # slice i-th UAV's tokens [masked_batch_size, 1, EMBEDDED_DIM]
+                current_batch_tensor_tokens_next_states_target = tokens_batch_next_states_target[index_mask, i:i + 1, :].squeeze(
                     1)
                 output_batch = mlp_target(current_batch_tensor_tokens_next_states_target)
                 # noise generation for target next states actions according to N(0,sigma)
-                noise = (torch.randn((BATCH_SIZE, 2)) * sigma).to(device)
+                noise = (torch.randn((masked_batch_size, 2)) * sigma).to(device)
                 # Clipping of noise
                 clipped_noise = torch.clip(noise, -c, c)
                 output_batch = torch.clip(output_batch + clipped_noise, -1.0, 1.0)
-                output_batch = output_batch * MAX_SPEED_UAV  # actions batch for UAV i-th [BATCH_SIZE, 2]
+                output_batch = output_batch * MAX_SPEED_UAV  # actions batch for UAV i-th [masked_batch_size, 2]
                 Q1_values_batch, Q2_values_batch = deep_Q_net_target(current_batch_tensor_tokens_next_states_target,
                                                                      output_batch)
-                # TODO reward deve essere del uav corrente
-                current_y_batch = rewards_batch + GAMMA * (1.0 - terminated_batch) * torch.min(Q1_values_batch,
+                current_uav_rewards = rewards_batch[..., i]
+                current_y_batch = current_uav_rewards[index_mask] + GAMMA * (1.0 - terminated_batch[index_mask]) * torch.min(Q1_values_batch,
                                                                                                Q2_values_batch)
-            # slice i-th UAV's tokens [BATCH_SIZE, 1, EMBEDDED_DIM]
-            current_batch_tensor_tokens_states = tokens_batch_states[:, i:i + 1, :].squeeze(1)
-            # Concatenate i-th UAV's actions along the batch size [BATCH_SIZE, 2]
+            # slice i-th UAV's tokens [masked_batch_size, 1, EMBEDDED_DIM]
+            current_batch_tensor_tokens_states = tokens_batch_states[index_mask, i:i + 1, :].squeeze(1)
+            # Concatenate i-th UAV's actions along the batch size [masked_batch_size, 2]
             current_batch_actions = torch.cat(
                 [action[i].unsqueeze(0) for action in actions_batch],
                 dim=0).to(device)
             Q1_values_batch, Q2_values_batch = deep_Q_net_policy(current_batch_tensor_tokens_states,
-                                                                 current_batch_actions)
+                                                                 current_batch_actions[index_mask])
 
             if i == 0:
                 Q1_batch_mean_first_uav = Q1_values_batch.mean()
@@ -235,10 +243,10 @@ if TRAIN:
 
             criterion = nn.MSELoss()
             # UPDATE POLICY
-            # slice i-th UAV's tokens [BATCH_SIZE, 1, EMBEDDED_DIM]
-            current_batch_tensor_tokens_states_target = tokens_batch_states_target[:, i:i + 1, :].squeeze(1)
+            # slice i-th UAV's tokens [masked_batch_size, 1, EMBEDDED_DIM]
+            current_batch_tensor_tokens_states_target = tokens_batch_states_target[index_mask, i:i + 1, :].squeeze(1)
             output_batch = mlp_policy(current_batch_tensor_tokens_states_target)
-            output_batch = output_batch * MAX_SPEED_UAV  # actions batch for UAV i-th [BATCH_SIZE, 2]
+            output_batch = output_batch * MAX_SPEED_UAV  # actions batch for UAV i-th [masked_batch_size, 2]
             Q1_values_batch, Q2_values_batch = deep_Q_net_policy(current_batch_tensor_tokens_states_target,
                                                                  output_batch)
             loss_policy += -Q1_values_batch.mean()

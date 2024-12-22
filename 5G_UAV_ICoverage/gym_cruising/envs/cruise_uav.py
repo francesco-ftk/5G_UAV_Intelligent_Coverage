@@ -8,7 +8,6 @@ import pygame
 from gymnasium.spaces import Box
 from gymnasium.vector.utils import spaces
 from pygame import Surface
-from sympy.physics.units import current
 
 from gym_cruising.actors.GU import GU
 from gym_cruising.actors.UAV import UAV
@@ -39,10 +38,6 @@ class CruiseUAV(Cruise):
     pathLoss = []
     SINR = []
     connectivity_matrix = []
-    # reward_window = []
-    # length_window = 5
-    # alpha = 0.7  # current reward weight
-    # beta = 0.3  # old rewards weight
 
     UAV_NUMBER = 2
     STARTING_GU_NUMBER = 60
@@ -90,7 +85,6 @@ class CruiseUAV(Cruise):
     def reset(self, seed=None, options: Optional[dict] = None) -> Tuple[np.ndarray, dict]:
         self.uav = []
         self.gu = []
-        # self.reward_window = []
         self.UAV_NUMBER = options["uav"]
         self.STARTING_GU_NUMBER = options["gu"]
         self.reset_observation_action_space()

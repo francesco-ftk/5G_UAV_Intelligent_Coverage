@@ -25,8 +25,8 @@ from gym_cruising.enums.constraint import Constraint
 
 UAV_NUMBER = 0
 
-TRAIN = False
-BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
+TRAIN = True
+BATCH_SIZE = 6  # is the number of transitions random sampled from the replay buffer
 LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
 BETA = 0.005  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
@@ -51,7 +51,7 @@ print("DEVICE:", device)
 
 if TRAIN:
 
-    wandb.init(project="mixed")
+    wandb.init(project="mixlast")
 
     env = gym.make('gym_cruising:Cruising-v0', render_mode='rgb_array', track_id=2)
     env.action_space.seed(42)
@@ -122,18 +122,18 @@ if TRAIN:
     def optimize_model():
         global BATCH_SIZE
 
-        if len(replay_buffer_uniform) < 5000 and len(replay_buffer_clustered) < 5000:
+        if len(replay_buffer_uniform) < 10 or len(replay_buffer_clustered) < 10:
             return
 
-        transitions_uniform = replay_buffer_uniform.sample(BATCH_SIZE / 2)
+        transitions_uniform = replay_buffer_uniform.sample(int(BATCH_SIZE / 2))
         # This converts batch-arrays of Transitions to Transition of batch-arrays.
         batch_uniform = Transition(*zip(*transitions_uniform))
 
-        transitions_clustered = replay_buffer_clustered.sample(BATCH_SIZE / 2)
+        transitions_clustered = replay_buffer_clustered.sample(int(BATCH_SIZE / 2))
         # This converts batch-arrays of Transitions to Transition of batch-arrays.
         batch_clustered = Transition(*zip(*transitions_clustered))
 
-        states_batch = batch_uniform.states + batch_clustered.states  # TODO si concatenano?
+        states_batch = batch_uniform.states + batch_clustered.states
         actions_batch = batch_uniform.actions + batch_clustered.actions
         actions_batch = tuple(
             [torch.tensor(array, dtype=torch.float32) for array in sublist] for sublist in actions_batch)
@@ -211,6 +211,7 @@ if TRAIN:
                 output_batch = output_batch * MAX_SPEED_UAV  # actions batch for UAV i-th [BATCH_SIZE, 2]
                 Q1_values_batch, Q2_values_batch = deep_Q_net_target(current_batch_tensor_tokens_next_states_target,
                                                                      output_batch)
+                # TODO reward deve essere del uav corrente
                 current_y_batch = rewards_batch + GAMMA * (1.0 - terminated_batch) * torch.min(Q1_values_batch,
                                                                                                Q2_values_batch)
             # slice i-th UAV's tokens [BATCH_SIZE, 1, EMBEDDED_DIM]
@@ -344,7 +345,8 @@ if TRAIN:
     def get_set_up():
         global UAV_NUMBER
 
-        if time_steps_done % policy_delay == 0:
+        sample = random.random()
+        if sample > 0.5:
             options = get_clustered_options()
         else:
             options = get_uniform_options()
@@ -375,7 +377,7 @@ if TRAIN:
         return action
 
 
-    def add_padding(state, next_state, actions, uav_number):
+    def add_padding(state, next_state, actions, reward, uav_number):
         padding = np.array([[0., 0.]])
         action_padding = [0., 0.]
         if uav_number == 1:
@@ -384,12 +386,15 @@ if TRAIN:
                 next_state = np.insert(next_state, i, padding, axis=0)
             actions.append(action_padding)
             actions.append(action_padding)
+            reward.append(0.)
+            reward.append(0.)
         if uav_number == 2:
             for i in range(4, 6):
                 state = np.insert(state, i, padding, axis=0)
                 next_state = np.insert(next_state, i, padding, axis=0)
             actions.append(action_padding)
-        return state, next_state, actions
+            reward.append(0.)
+        return state, next_state, actions, reward
 
 
     def validate():
@@ -535,12 +540,12 @@ if TRAIN:
             done = terminated or truncated
 
             # Store the transition in memory
-            state_padding, next_state_padding, actions_padding = add_padding(state, next_state, actions,
+            state_padding, next_state_padding, actions_padding, reward_padding = add_padding(state, next_state, actions, reward,
                                                                              options['uav'])
             if options['clustered'] is 0:
-                replay_buffer_uniform.push(state_padding, actions_padding, next_state_padding, reward, int(terminated))
+                replay_buffer_uniform.push(state_padding, actions_padding, next_state_padding, reward_padding, int(terminated))
             else:
-                replay_buffer_clustered.push(state_padding, actions_padding, next_state_padding, reward,
+                replay_buffer_clustered.push(state_padding, actions_padding, next_state_padding, reward_padding,
                                              int(terminated))
 
             # Move to the next state

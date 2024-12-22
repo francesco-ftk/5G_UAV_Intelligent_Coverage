@@ -294,13 +294,16 @@ class CruiseUAV(Cruise):
                 current_rewards.append((self.gu_covered - self.RCR_without_uav_i(i)) / len(self.gu))
         if self.last_RCR is None:
             self.last_RCR = current_rewards
-            return current_rewards * 100.0
+            return [r * 100.0 for r in current_rewards]
         delta_RCR_smorzato = []
         for i in range(len(self.uav)):
             if not terminated[i]:
                 delta_RCR_smorzato.append(self.reward_gamma * (current_rewards[i] - self.last_RCR[i]))
+            else:
+                delta_RCR_smorzato.append(0.0)
         self.last_RCR = current_rewards
-        return (current_rewards + delta_RCR_smorzato) * 100.0
+        reward_smorzato = np.add(current_rewards, delta_RCR_smorzato)
+        return [r * 100.0 for r in reward_smorzato]
 
     def init_environment(self, options: Optional[dict] = None) -> None:
         self.init_uav()

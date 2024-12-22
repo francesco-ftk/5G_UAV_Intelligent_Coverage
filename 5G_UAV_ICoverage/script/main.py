@@ -549,7 +549,7 @@ if TRAIN:
             # Store the transition in memory
             state_padding, next_state_padding, actions_padding, reward_padding = add_padding(state, next_state, actions, reward,
                                                                              options['uav'])
-            if options['clustered'] is 0:
+            if options['clustered'] == 0:
                 replay_buffer_uniform.push(state_padding, actions_padding, next_state_padding, reward_padding, int(terminated))
             else:
                 replay_buffer_clustered.push(state_padding, actions_padding, next_state_padding, reward_padding,

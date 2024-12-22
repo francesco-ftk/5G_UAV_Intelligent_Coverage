@@ -301,7 +301,7 @@ class CruiseUAV(Cruise):
 
     def init_environment(self, options: Optional[dict] = None) -> None:
         self.init_uav()
-        if options['clustered'] is 0:
+        if options['clustered'] == 0:
             self.init_gu()
         else:
             self.init_gu_clustered(options)

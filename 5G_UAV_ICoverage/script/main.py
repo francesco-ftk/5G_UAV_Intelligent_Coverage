@@ -35,11 +35,11 @@ sigma = 0.2  # Standard deviation of noise for target policy actions on next sta
 c = 0.2  # Clipping bound of noise
 policy_delay = 2  # delay for policy and target nets update
 start_steps = 20000
-p = 0.2  # control environment setup switch
 
 MAX_SPEED_UAV = 55.6  # m/s - about 20 Km/h x 10 secondi
 
-time_steps_done = -1
+time_steps_done = 0
+optimization_steps = 3
 
 BEST_VALIDATION = 0.0
 MAX_RCR = 0.0
@@ -87,7 +87,8 @@ if TRAIN:
     optimizer_mlp = optim.Adam(mlp_policy.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
     optimizer_deep_Q = optim.Adam(deep_Q_net_policy.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
 
-    replay_buffer = ReplayMemory(100000)
+    replay_buffer_uniform = ReplayMemory(50000)
+    replay_buffer_clustered = ReplayMemory(50000)
 
 
     def select_actions_epsilon(state, uav_number):
@@ -121,23 +122,25 @@ if TRAIN:
     def optimize_model():
         global BATCH_SIZE
 
-        if len(replay_buffer) < 5000:
+        if len(replay_buffer_uniform) < 5000 and len(replay_buffer_clustered) < 5000:
             return
 
-        optimization_steps = 3
-
-        transitions = replay_buffer.sample(BATCH_SIZE)
+        transitions_uniform = replay_buffer_uniform.sample(BATCH_SIZE / 2)
         # This converts batch-arrays of Transitions to Transition of batch-arrays.
-        batch = Transition(*zip(*transitions))
+        batch_uniform = Transition(*zip(*transitions_uniform))
 
-        states_batch = batch.states
-        actions_batch = batch.actions
+        transitions_clustered = replay_buffer_clustered.sample(BATCH_SIZE / 2)
+        # This converts batch-arrays of Transitions to Transition of batch-arrays.
+        batch_clustered = Transition(*zip(*transitions_clustered))
+
+        states_batch = batch_uniform.states + batch_clustered.states  # TODO si concatenano?
+        actions_batch = batch_uniform.actions + batch_clustered.actions
         actions_batch = tuple(
             [torch.tensor(array, dtype=torch.float32) for array in sublist] for sublist in actions_batch)
-        rewards_batch = batch.rewards
+        rewards_batch = batch_uniform.rewards + batch_clustered.rewards
         rewards_batch = torch.tensor(rewards_batch, dtype=torch.float32).unsqueeze(1).to(device)
-        next_states_batch = batch.next_states
-        terminated_batch = batch.terminated
+        next_states_batch = batch_uniform.next_states + batch_clustered.next_states
+        terminated_batch = batch_uniform.terminated + batch_clustered.terminated
         terminated_batch = torch.tensor(terminated_batch, dtype=torch.float32).unsqueeze(1).to(device)
 
         # prepare the batch of states
@@ -292,13 +295,15 @@ if TRAIN:
     def get_uniform_options():
         global UAV_NUMBER
 
-        starting_gu_number = random.randint(40, 120)
         if UAV_NUMBER == 1:
             uav_number = 1
+            starting_gu_number = random.randint(20, 40)
         elif UAV_NUMBER == 2:
             uav_number = 2
+            starting_gu_number = random.randint(40, 80)
         else:
             uav_number = 3
+            starting_gu_number = random.randint(60, 120)
 
         return ({
             "uav": uav_number,
@@ -312,16 +317,18 @@ if TRAIN:
     def get_clustered_options():
         global UAV_NUMBER
 
-        clusters_number = random.randint(2, 6) # todo dipende dal numero di uav
         variance = random.randint(40000, 50000)
 
         if UAV_NUMBER == 1:
+            clusters_number = random.randint(1, 2)
             starting_gu_number = 20 * clusters_number
             uav_number = 1
         elif UAV_NUMBER == 2:
+            clusters_number = random.randint(2, 4)
             starting_gu_number = 20 * clusters_number
             uav_number = 2
         else:
+            clusters_number = random.randint(3, 6)
             starting_gu_number = 20 * clusters_number
             uav_number = 3
 
@@ -337,8 +344,7 @@ if TRAIN:
     def get_set_up():
         global UAV_NUMBER
 
-        sample = random.random()
-        if sample > p:  # todo mettere a 0.5 e 2 replay buffer
+        if time_steps_done % policy_delay == 0:
             options = get_clustered_options()
         else:
             options = get_uniform_options()
@@ -391,29 +397,28 @@ if TRAIN:
         global MAX_RCR
         reward_sum_uniform = 0.0
         reward_sum_clustered = 0.0
-        max_rcr = 0.0
+        sum_max_rcr = 0.0
         options = ({
                        "uav": 1,
-                       "gu": 40,
+                       "gu": 30,
                        "clustered": 1,
                        "clusters_number": 1,
                        "variance": 50000
                    },
                    {
                        "uav": 2,
-                       "gu": 80,
+                       "gu": 60,
                        "clustered": 1,
                        "clusters_number": 2,
                        "variance": 50000
                    },
                    {
                        "uav": 3,
-                       "gu": 120,
+                       "gu": 90,
                        "clustered": 1,
                        "clusters_number": 3,
                        "variance": 50000
-                   }
-        )
+                   })
 
         seeds = [42, 751, 853]
         for i, seed in enumerate(seeds):
@@ -437,28 +442,28 @@ if TRAIN:
                 steps += 1
 
                 if done:
-                    max_rcr += current_max_rcr
+                    sum_max_rcr += current_max_rcr
                     break
 
         wandb.log({"reward_clustered": reward_sum_clustered})
 
         options = ({
                        "uav": 1,
-                       "gu": 40,
+                       "gu": 30,
                        "clustered": 0,
                        "clusters_number": 0,
                        "variance": 0
                    },
                    {
                        "uav": 2,
-                       "gu": 80,
+                       "gu": 60,
                        "clustered": 0,
                        "clusters_number": 0,
                        "variance": 0
                    },
                    {
                        "uav": 3,
-                       "gu": 120,
+                       "gu": 90,
                        "clustered": 0,
                        "clusters_number": 0,
                        "variance": 0
@@ -486,11 +491,11 @@ if TRAIN:
                 steps += 1
 
                 if done:
-                    max_rcr += current_max_rcr
+                    sum_max_rcr += current_max_rcr
                     break
 
         wandb.log({"reward_uniform": reward_sum_uniform})
-        wandb.log({"max_rcr": max_rcr})
+        wandb.log({"max_rcr": sum_max_rcr})
 
         total_reward = reward_sum_clustered + reward_sum_uniform
 
@@ -501,8 +506,8 @@ if TRAIN:
             torch.save(mlp_policy.state_dict(), '../neural_network/reward1MLP.pth')
             torch.save(deep_Q_net_policy.state_dict(), '../neural_network/reward1DeepQ.pth')
 
-        if max_rcr > MAX_RCR:
-            MAX_RCR = max_rcr
+        if sum_max_rcr > MAX_RCR:
+            MAX_RCR = sum_max_rcr
             # save the best validation nets
             torch.save(transformer_policy.state_dict(), '../neural_network/maxTransformer.pth')
             torch.save(mlp_policy.state_dict(), '../neural_network/maxMLP.pth')
@@ -532,7 +537,12 @@ if TRAIN:
             # Store the transition in memory
             state_padding, next_state_padding, actions_padding = add_padding(state, next_state, actions,
                                                                              options['uav'])
-            replay_buffer.push(state_padding, actions_padding, next_state_padding, reward, int(terminated))
+            if options['clustered'] is 0:
+                replay_buffer_uniform.push(state_padding, actions_padding, next_state_padding, reward, int(terminated))
+            else:
+                replay_buffer_clustered.push(state_padding, actions_padding, next_state_padding, reward,
+                                             int(terminated))
+
             # Move to the next state
             state = next_state
             # Perform one step of the optimization
@@ -542,7 +552,7 @@ if TRAIN:
             if done:
                 break
 
-        if len(replay_buffer) > 5000:
+        if len(replay_buffer_uniform) > 5000 and len(replay_buffer_clustered) > 5000:
             validate()
 
     # save the nets

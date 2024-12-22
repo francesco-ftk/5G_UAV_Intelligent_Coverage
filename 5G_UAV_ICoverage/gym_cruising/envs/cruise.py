@@ -2,7 +2,7 @@
 
 from abc import abstractmethod
 from copy import deepcopy
-from typing import Tuple
+from typing import Tuple, List
 
 import numpy as np
 import pygame
@@ -28,7 +28,7 @@ class Cruise(Env):
     track: Track
     world: Tuple[Line, ...]
 
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 8}
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 1}
 
     def __init__(self, render_mode=None, track_id: int = 1) -> None:
         self.window_size = 1000  # The size of the PyGame window
@@ -39,7 +39,7 @@ class Cruise(Env):
         self.window = None
         self.clock = None
 
-    def step(self, actions) -> Tuple[np.ndarray, float, bool, bool, dict]:
+    def step(self, actions) -> Tuple[np.ndarray, List, bool, bool, dict]:
 
         assert self.action_space.contains(actions)
 
@@ -54,7 +54,7 @@ class Cruise(Env):
         if self.render_mode == "human":
             self.render_frame()
 
-        return state, reward, terminated, truncated, info
+        return state, reward, any(terminated), truncated, info
 
     @abstractmethod
     def perform_action(self, actions) -> None:
@@ -65,7 +65,7 @@ class Cruise(Env):
         pass
 
     @abstractmethod
-    def check_if_terminated(self) -> bool:
+    def check_if_terminated(self):
         pass
 
     @abstractmethod
@@ -73,7 +73,7 @@ class Cruise(Env):
         pass
 
     @abstractmethod
-    def calculate_reward(self, terminated: bool) -> float:
+    def calculate_reward(self, terminated):
         pass
 
     @abstractmethod

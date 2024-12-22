@@ -8,6 +8,7 @@ import pygame
 from gymnasium.spaces import Box
 from gymnasium.vector.utils import spaces
 from pygame import Surface
+from sympy.physics.units import current
 
 from gym_cruising.actors.GU import GU
 from gym_cruising.actors.UAV import UAV
@@ -37,6 +38,7 @@ class CruiseUAV(Cruise):
     gu = []
     pathLoss = []
     SINR = []
+    connectivity_matrix = []
     # reward_window = []
     # length_window = 5
     # alpha = 0.7  # current reward weight
@@ -45,8 +47,8 @@ class CruiseUAV(Cruise):
     UAV_NUMBER = 2
     STARTING_GU_NUMBER = 60
     gu_number: int
-    MINIMUM_STARTING_DISTANCE_BETWEEN_UAV = 500  # meters
-    COLLISION_DISTANCE = 100  # meters
+    MINIMUM_STARTING_DISTANCE_BETWEEN_UAV = 200  # meters
+    COLLISION_DISTANCE = 10  # meters
 
     SPAWN_GU_PROB = 0.0005
     disappear_gu_prob: float
@@ -95,6 +97,7 @@ class CruiseUAV(Cruise):
         self.gu_number = self.STARTING_GU_NUMBER
         self.disappear_gu_prob = self.SPAWN_GU_PROB * 4 / self.gu_number
         self.gu_covered = 0
+        self.last_RCR = None
         return super().reset(seed=seed, options=options)
 
     def perform_action(self, actions) -> None:
@@ -205,11 +208,25 @@ class CruiseUAV(Cruise):
         # update disappear gu probability
         self.disappear_gu_prob = self.SPAWN_GU_PROB * 4 / self.gu_number
 
+    # def check_connection_and_coverage_UAV_GU(self):
+    #     covered = 0
+    #     for i, gu in enumerate(self.gu):
+    #         gu.setCovered(False)
+    #         current_SINR = self.SINR[i]
+    #         if any(SINR >= self.COVERED_TRESHOLD for SINR in current_SINR):
+    #             gu.setCovered(True)
+    #             covered += 1
+    #     self.gu_covered = covered
+
     def check_connection_and_coverage_UAV_GU(self):
         covered = 0
+        self.connectivity_matrix = np.zeros((self.gu_number, self.UAV_NUMBER), dtype=int)
         for i, gu in enumerate(self.gu):
             gu.setCovered(False)
             current_SINR = self.SINR[i]
+            for j in range(len(self.uav)):
+                if current_SINR[j] >= self.COVERED_TRESHOLD:
+                    self.connectivity_matrix[i, j] = 1
             if any(SINR >= self.COVERED_TRESHOLD for SINR in current_SINR):
                 gu.setCovered(True)
                 covered += 1
@@ -242,14 +259,15 @@ class CruiseUAV(Cruise):
                                         axis=0)
         return observation
 
-    def check_if_terminated(self) -> bool:
+    def check_if_terminated(self):
+        terminated_matrix = []
         area = self.np_random.choice(self.track.spawn_area)
         for i, uav in enumerate(self.uav):
-            if not uav.position.is_in_area(area):
-                return True
-            if self.collision(i, uav):
-                return True
-        return False
+            if not uav.position.is_in_area(area) or self.collision(i, uav):
+                terminated_matrix.append(True)
+            else:
+                terminated_matrix.append(False)
+        return terminated_matrix
 
     def collision(self, current_uav_index, uav) -> bool:
         collision = False
@@ -263,44 +281,26 @@ class CruiseUAV(Cruise):
     def check_if_truncated(self) -> bool:
         return False
 
-    def calculate_reward(self, terminated: bool) -> float:
-        if terminated:
-            # collision or environment exit penality
-            return -100.0
-        # calculate Region Coverage Ratio with last reward
-        current_RCR = self.gu_covered / len(self.gu)
+    def RCR_without_uav_i(self, i):
+        tmp_matrix = np.delete(self.connectivity_matrix, i, axis=1)  # Remove i-th column
+        return np.sum(np.any(tmp_matrix, axis=1))
+
+    def calculate_reward(self, terminated):
+        current_rewards = []
+        for i in range(len(self.uav)):
+            if terminated[i]:
+                current_rewards.append(-1.0)
+            else:
+                current_rewards.append((self.gu_covered - self.RCR_without_uav_i(i)) / len(self.gu))
         if self.last_RCR is None:
-            self.last_RCR = current_RCR
-            return current_RCR * 100.0
-        delta_RCR_smorzato = self.reward_gamma * (current_RCR - self.last_RCR)
-        self.last_RCR = current_RCR
-        return (current_RCR + delta_RCR_smorzato) * 100.0
-
-    # def get_relative_distance_penality(self) -> float:
-    #     distance_between_uav = self.uav[0].position.calculate_distance(self.uav[1].position)
-    #     if distance_between_uav >= 100.0:
-    #         return 0.0
-    #     return 100.0 - distance_between_uav
-
-    # def calculate_reward(self, terminated: bool) -> float:
-    #     if terminated:
-    #         # collision or environment exit penality
-    #         return -100.0
-    #
-    #     # calculate Region Coverage Ratio with window mean
-    #     current_RCR = self.gu_covered / len(self.gu)
-    #
-    #     if len(self.reward_window) > 0:
-    #         mean_RCR = sum(self.reward_window) / len(self.reward_window)
-    #     else:
-    #         mean_RCR = 0
-    #     delta_RCR = current_RCR - mean_RCR
-    #
-    #     self.reward_window.append(current_RCR)
-    #     if len(self.reward_window) > self.length_window:
-    #         self.reward_window.pop(0)
-    #
-    #     return (self.alpha * current_RCR + self.beta * delta_RCR) * 10.0
+            self.last_RCR = current_rewards
+            return current_rewards * 100.0
+        delta_RCR_smorzato = []
+        for i in range(len(self.uav)):
+            if not terminated[i]:
+                delta_RCR_smorzato.append(self.reward_gamma * (current_rewards[i] - self.last_RCR[i]))
+        self.last_RCR = current_rewards
+        return (current_rewards + delta_RCR_smorzato) * 100.0
 
     def init_environment(self, options: Optional[dict] = None) -> None:
         self.init_uav()

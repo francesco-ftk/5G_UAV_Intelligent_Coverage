@@ -605,9 +605,9 @@ else:
     transformer_policy = TransformerEncoderDecoder(embed_dim=EMBEDDED_DIM).to(device)
     mlp_policy = MLPPolicyNet(token_dim=EMBEDDED_DIM).to(device)
 
-    PATH_TRANSFORMER = './neural_network/rewardTransformer.pth'
+    PATH_TRANSFORMER = './neural_network/lastTransformer.pth'
     transformer_policy.load_state_dict(torch.load(PATH_TRANSFORMER))
-    PATH_MLP_POLICY = './neural_network/rewardMLP.pth'
+    PATH_MLP_POLICY = './neural_network/lastMLP.pth'
     mlp_policy.load_state_dict(torch.load(PATH_MLP_POLICY))
 
     options = ({
@@ -618,11 +618,9 @@ else:
         "variance": 50000
     })
 
-    # 1149
-
     time = int(time.perf_counter())
     print("Time: ", time)
-    state, info = env.reset(seed=1149, options=options)
+    state, info = env.reset(seed=time, options=options)
     steps = 1
     rewards = []
     uav_number = options["uav"]

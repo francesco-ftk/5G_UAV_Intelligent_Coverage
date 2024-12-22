@@ -21,12 +21,11 @@ from gym_cruising.memory.replay_memory import ReplayMemory, Transition
 from gym_cruising.neural_network.MLP_policy_net import MLPPolicyNet
 from gym_cruising.neural_network.deep_Q_net import DeepQNet, DoubleDeepQNet
 from gym_cruising.neural_network.transformer_encoder_decoder import TransformerEncoderDecoder
-from gym_cruising.enums.constraint import Constraint
 
 UAV_NUMBER = 0
 
 TRAIN = True
-BATCH_SIZE = 6  # is the number of transitions random sampled from the replay buffer
+BATCH_SIZE = 256  # is the number of transitions random sampled from the replay buffer
 LEARNING_RATE = 1e-4  # is the learning rate of the Adam optimizer, should decrease (1e-5)
 BETA = 0.005  # is the update rate of the target network
 GAMMA = 0.99  # Discount Factor
@@ -87,8 +86,8 @@ if TRAIN:
     optimizer_mlp = optim.Adam(mlp_policy.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
     optimizer_deep_Q = optim.Adam(deep_Q_net_policy.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
 
-    replay_buffer_uniform = ReplayMemory(50000)
-    replay_buffer_clustered = ReplayMemory(50000)
+    replay_buffer_uniform = ReplayMemory(100000)
+    replay_buffer_clustered = ReplayMemory(100000)
 
 
     def select_actions_epsilon(state, uav_number):
@@ -122,7 +121,7 @@ if TRAIN:
     def optimize_model():
         global BATCH_SIZE
 
-        if len(replay_buffer_uniform) < 10 or len(replay_buffer_clustered) < 10:
+        if len(replay_buffer_uniform) < 5000 or len(replay_buffer_clustered) < 5000:
             return
 
         transitions_uniform = replay_buffer_uniform.sample(int(BATCH_SIZE / 2))
@@ -200,7 +199,7 @@ if TRAIN:
             # index mask for not padded current uav in batch
             index_mask = [
                 k for k, lista in enumerate(actions_batch)
-                if not torch.equal(lista[i], torch.tensor([0., 0.]))
+                if not torch.equal(lista[i], torch.tensor([100., 100.]))
             ]
 
             masked_batch_size = len(index_mask)
@@ -387,7 +386,7 @@ if TRAIN:
 
     def add_padding(state, next_state, actions, reward, uav_number):
         padding = np.array([[0., 0.]])
-        action_padding = [0., 0.]
+        action_padding = [100., 100.]
         if uav_number == 1:
             for i in range(2, 6):
                 state = np.insert(state, i, padding, axis=0)
@@ -442,10 +441,10 @@ if TRAIN:
             while True:
                 actions = select_actions(state, uav_number)
                 next_state, reward, terminated, truncated, _ = env.step(actions)
-                reward_sum_clustered += reward
+                reward_sum_clustered += sum(reward)
 
-                if reward > current_max_rcr:
-                    current_max_rcr = reward
+                if sum(reward) > current_max_rcr:
+                    current_max_rcr = sum(reward)
 
                 if steps == 300:
                     truncated = True
@@ -491,10 +490,10 @@ if TRAIN:
             while True:
                 actions = select_actions(state, uav_number)
                 next_state, reward, terminated, truncated, _ = env.step(actions)
-                reward_sum_uniform += reward
+                reward_sum_uniform += sum(reward)
 
-                if reward > current_max_rcr:
-                    current_max_rcr = reward
+                if sum(reward) > current_max_rcr:
+                    current_max_rcr = sum(reward)
 
                 if steps == 300:
                     truncated = True
@@ -515,9 +514,9 @@ if TRAIN:
         if total_reward > BEST_VALIDATION:
             BEST_VALIDATION = total_reward
             # save the best validation nets
-            torch.save(transformer_policy.state_dict(), '../neural_network/reward1Transformer.pth')
-            torch.save(mlp_policy.state_dict(), '../neural_network/reward1MLP.pth')
-            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/reward1DeepQ.pth')
+            torch.save(transformer_policy.state_dict(), '../neural_network/rewardTransformer.pth')
+            torch.save(mlp_policy.state_dict(), '../neural_network/rewardMLP.pth')
+            torch.save(deep_Q_net_policy.state_dict(), '../neural_network/rewardDeepQ.pth')
 
         if sum_max_rcr > MAX_RCR:
             MAX_RCR = sum_max_rcr
@@ -528,7 +527,7 @@ if TRAIN:
 
 
     if torch.cuda.is_available():
-        num_episodes = 6000
+        num_episodes = 7000
     else:
         num_episodes = 100
 
@@ -565,13 +564,13 @@ if TRAIN:
             if done:
                 break
 
-        if len(replay_buffer_uniform) > 5000 and len(replay_buffer_clustered) > 5000:
+        if len(replay_buffer_uniform) >= 5000 and len(replay_buffer_clustered) >= 5000:
             validate()
 
     # save the nets
-    torch.save(transformer_policy.state_dict(), '../neural_network/last1Transformer.pth')
-    torch.save(mlp_policy.state_dict(), '../neural_network/last1MLP.pth')
-    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/last1DeepQ.pth')
+    torch.save(transformer_policy.state_dict(), '../neural_network/lastTransformer.pth')
+    torch.save(mlp_policy.state_dict(), '../neural_network/lastMLP.pth')
+    torch.save(deep_Q_net_policy.state_dict(), '../neural_network/lastDeepQ.pth')
 
     wandb.finish()
     env.close()
